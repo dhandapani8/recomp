@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@import "ae-ui/tokens.css";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-fraunces);
+
+  --color-bg: var(--bg);
+  --color-bg-card: var(--bg-card);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+
+  --color-accent-green:  var(--accent);
+  --color-accent-orange: var(--accent-warm);
+  --color-accent-blue:   var(--accent-secondary);
+  --color-accent-teal:   var(--accent-tertiary);
+  --color-accent-purple: #8b5cf6;
+  --color-accent-yellow: #facc15;
+}
+
+body {
+  font-family: var(--font-geist-sans), -apple-system, sans-serif;
+  isolation: isolate;
+  position: relative;
+}
