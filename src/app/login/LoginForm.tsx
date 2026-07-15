@@ -1,9 +1,17 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { signIn } from "next-auth/react";
 
-export function LoginForm({ next }: { next: string }) {
-  const [error, setError] = useState<string | null>(null);
+type LoginFormProps = {
+  authError: string | null;
+  googleEnabled: boolean;
+  next: string;
+  passwordEnabled: boolean;
+};
+
+export function LoginForm({ authError, googleEnabled, next, passwordEnabled }: LoginFormProps) {
+  const [error, setError] = useState<string | null>(authError);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -12,7 +20,7 @@ export function LoginForm({ next }: { next: string }) {
     setIsSubmitting(true);
 
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/session", {
+    const response = await fetch("/api/access/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: form.get("password") }),
@@ -30,16 +38,42 @@ export function LoginForm({ next }: { next: string }) {
 
   return (
     <main className="login-shell">
-      <form className="login-card" onSubmit={onSubmit}>
-        <p className="login-eyebrow">RECOMP / PRIVATE</p>
-        <h1>Welcome back</h1>
-        <label htmlFor="password">Admin password</label>
-        <input id="password" name="password" type="password" autoComplete="current-password" required />
+      <section className="login-card">
+        <div className="login-heading">
+          <p className="login-eyebrow">RECOMP</p>
+          <h1>Sign in</h1>
+          <p>Access your training, nutrition, and progress workspace.</p>
+        </div>
+
+        {googleEnabled ? (
+          <button
+            className="login-google"
+            onClick={() => void signIn("google", { callbackUrl: next })}
+            type="button"
+          >
+            <span aria-hidden="true" className="login-google-mark">G</span>
+            Continue with Google
+          </button>
+        ) : null}
+
+        {googleEnabled && passwordEnabled ? <div className="login-divider"><span>or</span></div> : null}
+
+        {passwordEnabled ? (
+          <form className="login-password-form" onSubmit={onSubmit}>
+            <label htmlFor="password">Access password</label>
+            <input id="password" name="password" type="password" autoComplete="current-password" required />
+            <button className="login-password-button" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Signing in..." : "Continue with password"}
+            </button>
+          </form>
+        ) : null}
+
         {error ? <p className="login-error" role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
+        {!googleEnabled && !passwordEnabled ? (
+          <p className="login-error" role="alert">No sign-in method has been configured.</p>
+        ) : null}
+        <p className="login-privacy">Data is stored in this browser, not your Google account.</p>
+      </section>
     </main>
   );
 }

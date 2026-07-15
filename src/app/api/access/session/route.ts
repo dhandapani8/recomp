@@ -19,18 +19,21 @@ function securityResponse(body: Record<string, string>, status: number) {
   });
 }
 
-export async function POST(request: Request) {
+function hasValidOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
+  if (!origin) return true;
 
-  if (origin) {
-    try {
-      if (new URL(origin).host !== host) {
-        return securityResponse({ error: "Invalid request origin." }, 403);
-      }
-    } catch {
-      return securityResponse({ error: "Invalid request origin." }, 403);
-    }
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+export async function POST(request: Request) {
+  if (!hasValidOrigin(request)) {
+    return securityResponse({ error: "Invalid request origin." }, 403);
   }
 
   let password: unknown;
@@ -41,12 +44,12 @@ export async function POST(request: Request) {
   }
 
   if (typeof password !== "string" || !verifyAdminPassword(password)) {
-    return securityResponse({ error: "Invalid password." }, 401);
+    return securityResponse({ error: "Invalid access password." }, 401);
   }
 
   const session = createAdminSession();
   if (!session) {
-    return securityResponse({ error: "Admin sessions are not configured." }, 503);
+    return securityResponse({ error: "Password sessions are not configured." }, 503);
   }
 
   const response = securityResponse({ ok: "true" }, 200);
@@ -58,6 +61,24 @@ export async function POST(request: Request) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: adminSessionMaxAge,
+  });
+  return response;
+}
+
+export async function DELETE(request: Request) {
+  if (!hasValidOrigin(request)) {
+    return securityResponse({ error: "Invalid request origin." }, 403);
+  }
+
+  const response = securityResponse({ ok: "true" }, 200);
+  response.cookies.set({
+    name: "recomp_admin_session",
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
   });
   return response;
 }

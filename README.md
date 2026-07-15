@@ -21,8 +21,14 @@ default.
 npm run dev
 ```
 
-Set independent values for `RECOMP_PASSWORD`, `RECOMP_SESSION_SECRET`, and
-`RECOMP_API_KEY` in `.env.local`. Generate secrets with `openssl rand -hex 32`.
+Copy `.env.example` to `.env.local`. For Google sign-in, configure
+`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, and `AUTH_SECRET`, then register
+`https://your-domain.example/api/auth/callback/google` as an authorized redirect
+URI in Google Cloud. Any Google account with a verified email can sign in.
+
+`RECOMP_PASSWORD` and `RECOMP_SESSION_SECRET` enable the optional password
+fallback. Keep `RECOMP_API_KEY` independent; it protects agent API access.
+Generate secrets with `openssl rand -hex 32`.
 Never commit `.env.local`.
 
 The web app defaults to `http://localhost:3000`. Mobile and agent setup are

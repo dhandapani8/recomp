@@ -4,12 +4,14 @@ Recomp's agent API is private and read-only. It exists so a trusted agent can
 inspect a health snapshot and help with a question; it does not let an agent
 write meals, weights, targets, or training data.
 
-## Browser admin access
+## Browser access
 
-Set both `RECOMP_PASSWORD` and `RECOMP_SESSION_SECRET` to different random
-values to protect the web UI. The password is checked only during sign-in; the
-browser then receives a signed, HttpOnly, `SameSite=Lax` session cookie that
-expires after 12 hours. Recomp no longer accepts a password in a URL.
+Google OAuth can protect the web UI using `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, and `AUTH_SECRET`. Any Google account with a verified
+email can sign in. To keep password access as a fallback, set both
+`RECOMP_PASSWORD` and `RECOMP_SESSION_SECRET` to different random values. The
+password is checked only during sign-in; its signed, HttpOnly, `SameSite=Lax`
+session cookie expires after 12 hours. Recomp never accepts a password in a URL.
 
 ## Setup
 

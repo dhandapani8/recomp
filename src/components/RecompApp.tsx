@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { signOut } from "next-auth/react";
 import {
   Activity,
   Apple,
@@ -12,6 +13,7 @@ import {
   Dumbbell,
   Gauge,
   Leaf,
+  LogOut,
   Pencil,
   Plus,
   RefreshCcw,
@@ -2039,6 +2041,19 @@ function Header({
 }
 
 function AppTopBar() {
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+
+    try {
+      await fetch("/api/access/session", { method: "DELETE" });
+      await signOut({ redirectTo: "/login" });
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
   return (
     <header
       className="sticky top-0 z-40 border-b"
@@ -2061,7 +2076,20 @@ function AppTopBar() {
           </div>
         </div>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            aria-label="Sign out"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border transition hover:opacity-75 disabled:cursor-wait disabled:opacity-50"
+            disabled={isSigningOut}
+            onClick={() => void handleSignOut()}
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+            title="Sign out"
+            type="button"
+          >
+            <LogOut size={17} />
+          </button>
+        </div>
       </div>
     </header>
   );

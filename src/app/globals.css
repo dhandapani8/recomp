@@ -2,7 +2,9 @@
 
 .login-shell {
   align-items: center;
-  background: #111110;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(207, 63, 41, 0.12), transparent 34rem),
+    #100e0c;
   display: flex;
   justify-content: center;
   min-height: 100vh;
@@ -10,35 +12,46 @@
 }
 
 .login-card {
-  background: #1b1a18;
-  border: 1px solid #37332e;
+  background: #1a1713;
+  border: 1px solid #3a3129;
   border-radius: 8px;
   color: #f5f1e8;
   display: grid;
-  gap: 14px;
-  max-width: 400px;
-  padding: 32px;
+  gap: 20px;
+  max-width: 420px;
+  padding: 36px;
   width: 100%;
 }
 
 .login-card h1 {
-  font-size: 28px;
-  margin: 0 0 8px;
+  font-size: 32px;
+  margin: 4px 0 6px;
 }
 
-.login-card label,
-.login-eyebrow {
+.login-heading > p:last-child,
+.login-card label {
   color: #c5bbb0;
   font-size: 14px;
 }
 
+.login-heading > p:last-child {
+  line-height: 1.5;
+  margin: 0;
+}
+
 .login-eyebrow {
-  color: #22c55e;
+  color: #ff684c;
+  font-size: 12px;
   letter-spacing: 0.12em;
   margin: 0;
 }
 
-.login-card input {
+.login-password-form {
+  display: grid;
+  gap: 10px;
+}
+
+.login-password-form input {
   background: #111110;
   border: 1px solid #514a42;
   border-radius: 6px;
@@ -49,14 +62,19 @@
 }
 
 .login-card button {
-  background: #22c55e;
-  border: 0;
+  align-items: center;
+  background: #f5f1e8;
+  border: 1px solid #f5f1e8;
   border-radius: 6px;
-  color: #08130b;
+  color: #191612;
   cursor: pointer;
+  display: flex;
   font: inherit;
   font-weight: 700;
+  gap: 10px;
+  justify-content: center;
   min-height: 44px;
+  padding: 0 16px;
 }
 
 .login-card button:disabled {
@@ -64,10 +82,60 @@
   opacity: 0.65;
 }
 
+.login-card .login-password-button {
+  background: #ff684c;
+  border-color: #ff684c;
+  color: #1b0905;
+  margin-top: 4px;
+}
+
+.login-google-mark {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dedbd5;
+  border-radius: 50%;
+  color: #2855c5;
+  display: inline-flex;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.login-divider {
+  align-items: center;
+  color: #887e74;
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  background: #3a3129;
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+
 .login-error {
   color: #fca5a5;
   font-size: 14px;
   margin: 0;
+}
+
+.login-privacy {
+  color: #887e74;
+  font-size: 12px;
+  margin: 0;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 28px 22px;
+  }
 }
 :root {
   --bg: #f1eadf;
