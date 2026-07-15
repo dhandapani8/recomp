@@ -3,3 +3,6 @@ node_modules/
 .env.local
 .DS_Store
 *.tsbuildinfo
+mobile/.expo/
+mobile/.claude/
+mobile/node_modules/

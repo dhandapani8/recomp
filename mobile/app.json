@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Recomp",
+    "slug": "recomp",
+    "owner": "dhandapani",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.recomp.mobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Recomp reads Apple Health activity, workout, sleep, and body metrics to personalize nutrition and training insights.",
+        "NSHealthUpdateUsageDescription": "Recomp can save workout and body metric updates you choose to write back to Apple Health.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "394ab63d-c246-462f-b54d-435af4bd6190"
+      }
+    }
+  }
+}

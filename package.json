@@ -6,15 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "mobile": "npm --prefix mobile start",
+    "mobile:ios": "npm --prefix mobile run ios",
+    "mobile:android": "npm --prefix mobile run android",
+    "mobile:web": "npm --prefix mobile run web",
+    "mobile:typecheck": "npm --prefix mobile run typecheck",
+    "mobile:build:ios:dev": "npm --prefix mobile run build:ios:dev",
+    "mobile:build:ios:preview": "npm --prefix mobile run build:ios:preview",
+    "mobile:build:ios:simulator": "npm --prefix mobile run build:ios:simulator",
+    "mcp": "node mcp/server.mjs"
   },
   "dependencies": {
-    "ae-ui": "file:../ae-ui",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "framer-motion": "^12",
     "lucide-react": "^1",
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,5 +1,107 @@
 @import "tailwindcss";
-@import "ae-ui/tokens.css";
+
+.login-shell {
+  align-items: center;
+  background: #111110;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  background: #1b1a18;
+  border: 1px solid #37332e;
+  border-radius: 8px;
+  color: #f5f1e8;
+  display: grid;
+  gap: 14px;
+  max-width: 400px;
+  padding: 32px;
+  width: 100%;
+}
+
+.login-card h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+
+.login-card label,
+.login-eyebrow {
+  color: #c5bbb0;
+  font-size: 14px;
+}
+
+.login-eyebrow {
+  color: #22c55e;
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+
+.login-card input {
+  background: #111110;
+  border: 1px solid #514a42;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.login-card button {
+  background: #22c55e;
+  border: 0;
+  border-radius: 6px;
+  color: #08130b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+}
+
+.login-card button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.login-error {
+  color: #fca5a5;
+  font-size: 14px;
+  margin: 0;
+}
+:root {
+  --bg: #f1eadf;
+  --bg-card: #fffaf2;
+  --text: #191612;
+  --text-muted: #6e6459;
+  --border: #d8cbbb;
+  --accent: #cf3f29;
+  --accent-hover: #a92f1d;
+  --accent-contrast: #ffffff;
+  --accent-secondary: #234fd1;
+  --accent-tertiary: #087f72;
+  --accent-warm: #9a6800;
+  --page-wash-a: color-mix(in srgb, var(--accent) 8%, transparent);
+  --page-wash-b: color-mix(in srgb, var(--accent-secondary) 7%, transparent);
+  --page-line: color-mix(in srgb, #3d2b1f 5%, transparent);
+}
+
+.dark {
+  --bg: #100e0c;
+  --bg-card: #1a1713;
+  --text: #f6eee2;
+  --text-muted: #afa194;
+  --border: #3a3129;
+  --accent: #ff684c;
+  --accent-hover: #ff826b;
+  --accent-contrast: #1b0905;
+  --accent-secondary: #7692ff;
+  --accent-tertiary: #3fc4ad;
+  --accent-warm: #e2aa3e;
+  --page-wash-a: color-mix(in srgb, var(--accent) 10%, transparent);
+  --page-wash-b: color-mix(in srgb, var(--accent-secondary) 9%, transparent);
+  --page-line: color-mix(in srgb, #f6eee2 3%, transparent);
+}
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -21,7 +123,21 @@
 }
 
 body {
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-geist-sans), -apple-system, sans-serif;
   isolation: isolate;
   position: relative;
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text);
+}
+
+:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

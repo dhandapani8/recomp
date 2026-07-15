@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import {
   Activity,
   Apple,
@@ -25,7 +26,8 @@ import {
   Utensils,
   UserRound,
 } from "lucide-react";
-import { font, ThemeToggle } from "ae-ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { font } from "@/lib/design-system";
 
 type View = "dashboard" | "meals" | "weight" | "workouts" | "insights";
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
@@ -194,7 +196,7 @@ const QUICK_MEALS = [
   {
     label: "Protein dinner",
     mealType: "Dinner" as MealType,
-    description: "Protein stir fry with vegetables, rice, edamame, and yogurt dip",
+    description: "Lean protein bowl with rice, vegetables, avocado, and yogurt dip",
     calories: 650,
     protein: 43,
     carbs: 72,
@@ -222,6 +224,58 @@ const ACCENT = {
   red: "#dc2626",
   slate: "#475569",
 };
+
+const WATCH_METRICS = [
+  { label: "Move", value: "640 kcal", color: ACCENT.orange },
+  { label: "Exercise", value: "46 min", color: ACCENT.green },
+  { label: "Steps", value: "8,420", color: ACCENT.blue },
+  { label: "Sleep", value: "7h 12m", color: ACCENT.teal },
+];
+
+const GYM_PLANS = [
+  {
+    name: "Upper strength",
+    duration: 60,
+    intensity: "High" as Intensity,
+    goal: "Build pressing and pulling strength without burying recovery.",
+    exercises: [
+      "Bench press - 4 x 5-8",
+      "Chest-supported row - 4 x 8-10",
+      "Incline dumbbell press - 3 x 8-10",
+      "Lat pulldown - 3 x 10-12",
+      "Lateral raise - 3 x 12-15",
+      "Cable triceps pressdown - 2 x 12-15",
+    ],
+  },
+  {
+    name: "Lower strength",
+    duration: 65,
+    intensity: "High" as Intensity,
+    goal: "Keep legs strong while cutting. Prioritize clean reps over volume.",
+    exercises: [
+      "Back squat - 4 x 5-8",
+      "Romanian deadlift - 3 x 8-10",
+      "Leg press - 3 x 10-12",
+      "Hamstring curl - 3 x 10-12",
+      "Standing calf raise - 3 x 12-15",
+      "Plank - 3 x 45-60s",
+    ],
+  },
+  {
+    name: "Full-body recomp",
+    duration: 55,
+    intensity: "Medium" as Intensity,
+    goal: "Best default when sleep or food has been average.",
+    exercises: [
+      "Goblet squat - 3 x 10",
+      "Dumbbell bench press - 3 x 8-10",
+      "Seated cable row - 3 x 10-12",
+      "Hip thrust - 3 x 10-12",
+      "Lateral raise - 2 x 15",
+      "Farmer carry - 4 x 30m",
+    ],
+  },
+];
 
 function toISODate(date: Date) {
   const offsetMs = date.getTimezoneOffset() * 60_000;
@@ -364,33 +418,33 @@ function createSeedStore(today: string, profile: Profile = DEFAULT_PROFILE): Fit
     targetCalories: 2200,
     meals: [
       makeMeal(today, "Breakfast", "Greek yogurt bowl with banana, chia seeds, walnuts, and whey", 510, 38, 62, 15, 9),
-      makeMeal(today, "Lunch", "Rice, beans, corn, salad, and curd", 710, 28, 108, 16, 16),
+      makeMeal(today, "Lunch", "Chicken burrito bowl with rice, beans, corn, and salad", 710, 44, 92, 17, 14),
       makeMeal(today, "Snack", "Whey protein shake with an apple", 260, 27, 28, 2, 4, "High"),
 
-      makeMeal(d(-1), "Breakfast", "Paneer bhurji toast with fruit", 560, 36, 58, 20, 8),
-      makeMeal(d(-1), "Lunch", "Lentil soup, salad, and sourdough", 620, 32, 84, 14, 18),
-      makeMeal(d(-1), "Dinner", "Tofu curry with rice and cucumber raita", 760, 46, 88, 24, 12),
+      makeMeal(d(-1), "Breakfast", "Eggs, toast, Greek yogurt, and fruit", 560, 42, 54, 19, 7),
+      makeMeal(d(-1), "Lunch", "Turkey sandwich, salad, and soup", 620, 43, 62, 18, 9),
+      makeMeal(d(-1), "Dinner", "Salmon rice bowl with cucumber yogurt sauce", 760, 48, 72, 30, 8),
       makeMeal(d(-1), "Snack", "Cottage cheese bowl", 220, 26, 12, 7, 2, "High"),
 
       makeMeal(d(-2), "Breakfast", "Oats with milk, berries, and protein powder", 540, 42, 66, 12, 10),
-      makeMeal(d(-2), "Lunch", "Chickpea wrap with hummus and vegetables", 680, 31, 82, 23, 15),
-      makeMeal(d(-2), "Dinner", "Soy chunk pulao with salad", 790, 52, 96, 18, 11),
+      makeMeal(d(-2), "Lunch", "Chicken wrap with hummus and vegetables", 680, 45, 68, 22, 10),
+      makeMeal(d(-2), "Dinner", "Lean beef stir fry with rice and salad", 790, 52, 78, 28, 8),
 
       makeMeal(d(-3), "Breakfast", "Eggs, toast, and Greek yogurt", 590, 45, 44, 24, 5, "High"),
-      makeMeal(d(-3), "Lunch", "Custom burrito bowl with beans and tofu", 760, 43, 92, 21, 19),
-      makeMeal(d(-3), "Dinner", "Paneer tikka, roti, and salad", 740, 41, 65, 31, 8),
+      makeMeal(d(-3), "Lunch", "Custom burrito bowl with beans and chicken", 760, 49, 84, 21, 13),
+      makeMeal(d(-3), "Dinner", "Tandoori chicken, roti, and salad", 740, 51, 58, 25, 7),
 
       makeMeal(d(-4), "Breakfast", "Protein smoothie with oats", 500, 39, 60, 11, 9),
-      makeMeal(d(-4), "Lunch", "Dal, rice, mixed vegetables, and curd", 720, 35, 102, 16, 17),
-      makeMeal(d(-4), "Dinner", "Tofu noodles with edamame", 820, 48, 93, 26, 10),
+      makeMeal(d(-4), "Lunch", "Tuna rice bowl with mixed vegetables and yogurt", 720, 47, 84, 18, 9),
+      makeMeal(d(-4), "Dinner", "Prawn noodles with edamame", 820, 52, 90, 24, 9),
 
       makeMeal(d(-5), "Breakfast", "Skyr bowl with granola and berries", 470, 34, 57, 12, 7),
-      makeMeal(d(-5), "Lunch", "Cafeteria pasta with lentil salad", 790, 29, 104, 26, 13),
-      makeMeal(d(-5), "Dinner", "Soy chunk curry with rice", 760, 54, 82, 20, 12),
+      makeMeal(d(-5), "Lunch", "Cafeteria pasta with grilled chicken salad", 790, 46, 92, 25, 9),
+      makeMeal(d(-5), "Dinner", "Chicken curry with rice", 760, 54, 76, 22, 8),
 
       makeMeal(d(-6), "Breakfast", "Dosa, sambar, and Greek yogurt", 610, 33, 84, 16, 11),
-      makeMeal(d(-6), "Lunch", "Tofu salad bowl with quinoa", 650, 45, 62, 22, 14),
-      makeMeal(d(-6), "Dinner", "Lentil pasta with vegetables", 810, 42, 101, 24, 15),
+      makeMeal(d(-6), "Lunch", "Chicken salad bowl with quinoa", 650, 48, 58, 20, 10),
+      makeMeal(d(-6), "Dinner", "Turkey pasta with vegetables", 810, 50, 92, 24, 10),
     ],
     weights: [
       { id: makeId("weight"), date: d(-8), weightKg: 84.1 },
@@ -1464,14 +1518,73 @@ function WorkoutView({
 
   const trainingDays = store.workouts.filter(workout => workout.type !== "Rest").length;
   const totalMinutes = store.workouts.reduce((sum, workout) => sum + workout.durationMinutes, 0);
+  const latestWorkout = [...store.workouts].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const weeklyGymSessions = store.workouts.filter(workout => workout.type === "Gym").length;
+
+  function loadPlan(plan: (typeof GYM_PLANS)[number]) {
+    setWorkoutForm(current => ({
+      ...current,
+      type: "Gym",
+      durationMinutes: String(plan.duration),
+      intensity: plan.intensity,
+      notes: [
+        `${plan.name}: ${plan.goal}`,
+        "",
+        ...plan.exercises.map(exercise => `- [ ] ${exercise}`),
+        "",
+        "Track: load, reps completed, RPE, and any pain or form notes.",
+      ].join("\n"),
+    }));
+  }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+    <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
       <div className="grid content-start gap-5">
         <Panel>
           <div className="mb-4">
             <p className="text-[11px] font-mono uppercase tracking-[0.14em]" style={{ color: ACCENT.orange }}>
-              Training log
+              Apple Watch
+            </p>
+            <h2 className="mt-1 text-xl font-bold" style={{ color: "var(--text)", fontFamily: font.serif }}>
+              Health-aware training
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {WATCH_METRICS.map(metric => (
+              <StatPill key={metric.label} label={metric.label} value={metric.value} color={metric.color} />
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}>
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg" style={{ background: `${ACCENT.green}12`, color: ACCENT.green }}>
+                <Activity size={17} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                  Integration path
+                </p>
+                <p className="mt-1 text-sm leading-6" style={{ color: "var(--text-muted)" }}>
+                  Web apps cannot read Apple Health directly. V1 can import Health export files; native sync later needs an iPhone companion using HealthKit.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} color={ACCENT.green} />
+                <span>Read active energy, steps, workout minutes, heart-rate zones, sleep, and body weight.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} color={ACCENT.green} />
+                <span>Use watch workouts to adjust carbs and recovery prompts.</span>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel>
+          <div className="mb-4">
+            <p className="text-[11px] font-mono uppercase tracking-[0.14em]" style={{ color: ACCENT.blue }}>
+              Training signal
             </p>
             <h2 className="mt-1 text-xl font-bold" style={{ color: "var(--text)", fontFamily: font.serif }}>
               Workout-aware macros
@@ -1480,9 +1593,14 @@ function WorkoutView({
           <div className="grid grid-cols-2 gap-2">
             <StatPill label="Sessions" value={`${trainingDays}`} color={ACCENT.green} />
             <StatPill label="Minutes" value={`${totalMinutes}`} color={ACCENT.blue} />
-            <StatPill label="Default" value="Gym + badminton" color={ACCENT.orange} />
+            <StatPill label="Gym" value={`${weeklyGymSessions}`} color={ACCENT.orange} />
             <StatPill label="Protein" value="150g daily" color={ACCENT.teal} />
           </div>
+          <p className="mt-4 text-sm leading-6" style={{ color: "var(--text-muted)" }}>
+            {latestWorkout
+              ? `Last logged: ${latestWorkout.type} on ${formatDate(latestWorkout.date, { month: "short", day: "numeric" })}. Keep the next gym session focused and measurable.`
+              : "Log your first session to connect training load with calories, protein, and recovery."}
+          </p>
         </Panel>
 
         <Panel>
@@ -1517,35 +1635,88 @@ function WorkoutView({
         </Panel>
       </div>
 
-      <Panel>
-        <div className="grid gap-3">
-          {[...store.workouts].sort((a, b) => b.date.localeCompare(a.date)).map(workout => (
-            <article key={workout.id} className="rounded-lg border p-4" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-lg" style={{ background: `${ACCENT.orange}12`, color: ACCENT.orange }}>
-                    <Dumbbell size={18} />
-                  </div>
+      <div className="grid content-start gap-5">
+        <Panel>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-mono uppercase tracking-[0.14em]" style={{ color: ACCENT.green }}>
+                Gym coach
+              </p>
+              <h2 className="mt-1 text-xl font-bold" style={{ color: "var(--text)", fontFamily: font.serif }}>
+                Suggested sessions
+              </h2>
+            </div>
+            <div className="rounded-lg border px-3 py-2 text-xs font-mono uppercase tracking-[0.12em]" style={{ borderColor: `${ACCENT.green}30`, background: `${ACCENT.green}10`, color: ACCENT.green }}>
+              Recomp block
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {GYM_PLANS.map(plan => (
+              <article key={plan.name} className="rounded-lg border p-4" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                      {workout.type} · {workout.durationMinutes} min
+                      {plan.name}
                     </h3>
-                    <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                      {formatDate(workout.date, { weekday: "short", month: "short", day: "numeric" })} · {workout.intensity} intensity
+                    <p className="mt-1 text-sm leading-6" style={{ color: "var(--text-muted)" }}>
+                      {plan.goal}
                     </p>
-                    {workout.notes && (
-                      <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-muted)" }}>
-                        {workout.notes}
-                      </p>
-                    )}
                   </div>
+                  <ActionButton icon={Dumbbell} variant="secondary" onClick={() => loadPlan(plan)}>
+                    Use plan
+                  </ActionButton>
                 </div>
-                <IconButton label="Delete workout" onClick={() => onDeleteWorkout(workout.id)} icon={Trash2} color={ACCENT.red} />
-              </div>
-            </article>
-          ))}
-        </div>
-      </Panel>
+                <div className="mt-3 grid gap-2">
+                  {plan.exercises.map(exercise => (
+                    <div key={exercise} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm" style={{ background: "color-mix(in srgb, var(--border) 22%, transparent)" }}>
+                      <span style={{ color: "var(--text)" }}>{exercise}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel>
+          <div className="mb-4">
+            <p className="text-[11px] font-mono uppercase tracking-[0.14em]" style={{ color: ACCENT.orange }}>
+              Workout history
+            </p>
+            <h2 className="mt-1 text-xl font-bold" style={{ color: "var(--text)", fontFamily: font.serif }}>
+              Logged sessions
+            </h2>
+          </div>
+          <div className="grid gap-3">
+            {[...store.workouts].sort((a, b) => b.date.localeCompare(a.date)).map(workout => (
+              <article key={workout.id} className="rounded-lg border p-4" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-10 w-10 place-items-center rounded-lg" style={{ background: `${ACCENT.orange}12`, color: ACCENT.orange }}>
+                      <Dumbbell size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                        {workout.type} · {workout.durationMinutes} min
+                      </h3>
+                      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                        {formatDate(workout.date, { weekday: "short", month: "short", day: "numeric" })} · {workout.intensity} intensity
+                      </p>
+                      {workout.notes && (
+                        <p className="mt-2 whitespace-pre-line text-sm leading-6" style={{ color: "var(--text-muted)" }}>
+                          {workout.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <IconButton label="Delete workout" onClick={() => onDeleteWorkout(workout.id)} icon={Trash2} color={ACCENT.red} />
+                </div>
+              </article>
+            ))}
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
@@ -1704,7 +1875,7 @@ function ProfileTags({ profile }: { profile: Profile }) {
     { label: "Sex", value: profile.sex, color: ACCENT.blue, icon: UserRound },
     { label: "Age", value: String(profile.age), color: ACCENT.orange, icon: CalendarDays },
     { label: "Height", value: `${profile.heightCm} cm`, color: ACCENT.teal, icon: Scale },
-    { label: "Diet", value: profile.dietType, color: ACCENT.pink, icon: Utensils },
+    { label: "Food style", value: profile.dietType, color: ACCENT.pink, icon: Utensils },
     { label: "Training", value: profile.training, color: ACCENT.slate, icon: Dumbbell },
   ];
 
@@ -1750,7 +1921,7 @@ function ProfileEditor({
         <Field label="Goal kg">
           <input className={inputClass} style={inputStyle} inputMode="decimal" value={profile.goalWeightKg} onChange={event => update("goalWeightKg", round(numberOrZero(event.target.value), 1))} />
         </Field>
-        <Field label="Diet">
+        <Field label="Food style">
           <input className={inputClass} style={inputStyle} value={profile.dietType} onChange={event => update("dietType", event.target.value)} />
         </Field>
         <Field label="Training">
@@ -1898,43 +2069,135 @@ function AppTopBar() {
 
 function RecompLogo({ size = "sm" }: { size?: "sm" | "lg" }) {
   const isLarge = size === "lg";
+  const boxClass = isLarge ? "h-16 w-16 rounded-2xl" : "h-10 w-10 rounded-xl";
 
   return (
-    <div
-      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border ${isLarge ? "h-16 w-16" : "h-10 w-10"}`}
+    <motion.div
+      className={`group relative flex flex-shrink-0 items-center justify-center overflow-hidden border ${boxClass}`}
       style={{
-        background: `linear-gradient(145deg, ${ACCENT.green}24, ${ACCENT.blue}16), var(--bg-card)`,
-        borderColor: `${ACCENT.green}40`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 34px ${ACCENT.green}18`,
+        background:
+          "linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 95%, white), var(--bg-card))",
+        borderColor: "color-mix(in srgb, var(--border) 78%, transparent)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 34px rgba(0,0,0,0.16)",
       }}
+      initial="rest"
+      whileHover="active"
+      whileFocus="active"
+      whileTap={{ scale: 0.98 }}
+      variants={{
+        rest: { scale: 1 },
+        active: { scale: 1.04 },
+      }}
+      transition={{ type: "spring", stiffness: 260, damping: 22 }}
       aria-label="Recomp"
+      tabIndex={0}
     >
-      <span
-        className={`relative z-10 font-black tracking-normal ${isLarge ? "text-2xl" : "text-base"}`}
-        style={{ color: ACCENT.green, fontFamily: font.mono }}
+      <svg
+        viewBox="0 0 64 64"
+        className="h-[80%] w-[80%]"
+        role="img"
+        aria-hidden
       >
-        _r
-      </span>
-      <span
-        className="absolute rounded-full"
-        style={{
-          height: isLarge ? 34 : 22,
-          width: isLarge ? 34 : 22,
-          border: `2px solid ${ACCENT.blue}70`,
-          borderLeftColor: "transparent",
-          borderBottomColor: "transparent",
-          transform: "rotate(18deg)",
-          right: isLarge ? 8 : 5,
-          top: isLarge ? 9 : 6,
-        }}
-        aria-hidden
-      />
-      <span
-        className="absolute h-1.5 w-1.5 rounded-full"
-        style={{ background: ACCENT.orange, right: isLarge ? 14 : 9, bottom: isLarge ? 13 : 8 }}
-        aria-hidden
-      />
-    </div>
+        <motion.g
+          style={{ originX: "32px", originY: "32px" }}
+          variants={{
+            rest: { rotate: 0, scale: 1 },
+            active: { rotate: -3, scale: 1.03 },
+          }}
+          transition={{ type: "spring", stiffness: 180, damping: 18 }}
+        >
+          <path
+            d="M32 9.5 C22 9.5 16 16.8 18.2 27.8 C12.2 35.8 16.8 52.4 32 53.2 C47.2 52.4 51.8 35.8 45.8 27.8 C48 16.8 42 9.5 32 9.5 Z"
+            fill="none"
+            stroke={ACCENT.orange}
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.48"
+          />
+          <path
+            d="M32 14.8 C24.7 14.8 20.1 20.3 21.8 28.7 C17.5 35 21 47.2 32 48 C43 47.2 46.5 35 42.2 28.7 C43.9 20.3 39.3 14.8 32 14.8 Z"
+            fill="none"
+            stroke={ACCENT.blue}
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.7"
+          />
+          <path
+            d="M32 20.2 C27.4 20.2 24.3 24 25.5 30.2 C22.8 35 25.5 42.1 32 43 C38.5 42.1 41.2 35 38.5 30.2 C39.7 24 36.6 20.2 32 20.2 Z"
+            fill="none"
+            stroke={ACCENT.green}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.95"
+          />
+        </motion.g>
+
+        <motion.path
+          d="M20.5 31.5 C26.5 28.7 37.5 28.7 43.5 31.5"
+          fill="none"
+          stroke="color-mix(in srgb, var(--text) 78%, transparent)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          variants={{
+            rest: { pathLength: 0.72, opacity: 0.78 },
+            active: { pathLength: 1, opacity: 0.95 },
+          }}
+          transition={{ duration: 0.36, ease: "easeOut" }}
+        />
+        <motion.path
+          d="M24 39 C28.8 42.2 35.2 42.2 40 39"
+          fill="none"
+          stroke="color-mix(in srgb, var(--text) 70%, transparent)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          variants={{
+            rest: { pathLength: 0.62, opacity: 0.58 },
+            active: { pathLength: 0.98, opacity: 0.86 },
+          }}
+          transition={{ duration: 0.36, ease: "easeOut" }}
+        />
+        <motion.path
+          d="M47.5 16.5 C43.5 15.6 39.8 16.4 36.8 19"
+          fill="none"
+          stroke={ACCENT.green}
+          strokeWidth="3"
+          strokeLinecap="round"
+          variants={{
+            rest: { pathLength: 0.72, opacity: 0.7 },
+            active: { pathLength: 1, opacity: 1 },
+          }}
+          transition={{ duration: 0.34, ease: "easeOut" }}
+        />
+        <motion.path
+          d="M16.5 47.5 C21 49 25.5 48.3 29.2 45.4"
+          fill="none"
+          stroke={ACCENT.orange}
+          strokeWidth="3"
+          strokeLinecap="round"
+          variants={{
+            rest: { pathLength: 1, opacity: 0.62 },
+            active: { pathLength: 0.58, opacity: 0.34 },
+          }}
+          transition={{ duration: 0.34, ease: "easeOut" }}
+        />
+
+        <motion.circle
+          cx="32"
+          cy="32"
+          r="2.6"
+          fill="var(--text)"
+          variants={{
+            rest: { scale: 0.9, opacity: 0.78 },
+            active: { scale: 1.15, opacity: 1 },
+          }}
+          style={{ originX: "32px", originY: "32px" }}
+          transition={{ type: "spring", stiffness: 260, damping: 18 }}
+        />
+      </svg>
+    </motion.div>
   );
 }
 

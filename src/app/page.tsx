@@ -1,27 +1,19 @@
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { RecompApp } from "@/components/RecompApp";
+import { isValidAdminSession } from "@/lib/admin-session";
 
-// Simple env-var gate. Set RECOMP_PASSWORD in .env.local and pass it via
-// the Authorization header or a ?token= query param. Replace with
-// better-auth or next-auth for a proper login flow.
 export const dynamic = "force-dynamic";
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string>>;
-}) {
+export default async function Page() {
   const password = process.env.RECOMP_PASSWORD;
 
   if (password) {
-    const params = await searchParams;
-    const headersList = await headers();
-    const authHeader = headersList.get("authorization") ?? "";
-    const token = params.token ?? authHeader.replace("Bearer ", "");
+    const cookieStore = await cookies();
+    const session = cookieStore.get("recomp_admin_session")?.value;
 
-    if (token !== password) {
-      redirect(`/login?next=/`);
+    if (!isValidAdminSession(session)) {
+      redirect("/login?next=/");
     }
   }
 
