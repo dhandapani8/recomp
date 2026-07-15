@@ -31,6 +31,9 @@ fallback. Keep `RECOMP_API_KEY` independent; it protects agent API access.
 Generate secrets with `openssl rand -hex 32`.
 Never commit `.env.local`.
 
+For a temporary public test deployment, set `RECOMP_PUBLIC_ACCESS=true`. This
+bypasses browser sign-in only; the agent API still requires `RECOMP_API_KEY`.
+
 The web app defaults to `http://localhost:3000`. Mobile and agent setup are
 documented in [`mobile/README.md`](mobile/README.md) and
 [`docs/agent-api.md`](docs/agent-api.md).

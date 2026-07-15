@@ -2040,7 +2040,7 @@ function Header({
   );
 }
 
-function AppTopBar() {
+function AppTopBar({ showSignOut }: { showSignOut: boolean }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -2078,17 +2078,19 @@ function AppTopBar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <button
-            aria-label="Sign out"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border transition hover:opacity-75 disabled:cursor-wait disabled:opacity-50"
-            disabled={isSigningOut}
-            onClick={() => void handleSignOut()}
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-            title="Sign out"
-            type="button"
-          >
-            <LogOut size={17} />
-          </button>
+          {showSignOut ? (
+            <button
+              aria-label="Sign out"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border transition hover:opacity-75 disabled:cursor-wait disabled:opacity-50"
+              disabled={isSigningOut}
+              onClick={() => void handleSignOut()}
+              style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+              title="Sign out"
+              type="button"
+            >
+              <LogOut size={17} />
+            </button>
+          ) : null}
         </div>
       </div>
     </header>
@@ -2239,7 +2241,7 @@ function AppCredit() {
   );
 }
 
-export function RecompApp() {
+export function RecompApp({ showSignOut = true }: { showSignOut?: boolean }) {
   const initialToday = toISODate(new Date());
   const [today, setToday] = useState(initialToday);
   const [selectedDate, setSelectedDate] = useState(initialToday);
@@ -2427,7 +2429,7 @@ export function RecompApp() {
           "linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, #eef7f1) 0%, var(--bg) 44%, color-mix(in srgb, var(--bg) 92%, #eef3ff) 100%)",
       }}
     >
-      <AppTopBar />
+      <AppTopBar showSignOut={showSignOut} />
 
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
         <Header

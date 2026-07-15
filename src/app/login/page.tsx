@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth, googleEnabled } from "@/auth";
+import { isPublicAccessEnabled } from "@/lib/access-mode";
 import { isValidAdminSession } from "@/lib/admin-session";
 import { LoginForm } from "./LoginForm";
 
@@ -12,6 +13,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
+  if (isPublicAccessEnabled()) {
+    redirect("/");
+  }
+
   const [{ error, next }, oauthSession, cookieStore] = await Promise.all([
     searchParams,
     auth(),
