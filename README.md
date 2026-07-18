@@ -1,18 +1,34 @@
 # Recomp
 
-Recomp is a self-hosted, AI-assisted body recomposition tracker. It combines
-meal and macro tracking, weight trends, workouts, coaching insights, a React
-Native mobile client, and a private agent interface.
+Recomp is a self-hosted body recomposition tracker with optional AI assistance.
+It combines photo-assisted meal capture, common and custom foods, daily macro
+budgets, meal reminders, simple gym routines, sports, weight trends, coaching
+insights, a React Native mobile client, and a private agent interface.
 
-Recomp is currently designed as a single-admin personal tool. It is not a
-multi-user hosted service and does not send health data to an AI provider by
-default.
+The current web build stores its working data in the user's browser. It does not
+upload meal photos or health data to an AI provider by default.
 
 ## Projects
 
 - `src/` - Next.js web app and authenticated API
 - `mobile/` - Expo / React Native mobile app
 - `mcp/` - local, read-only MCP adapter for trusted agents
+- `docs/ai-modes.md` - cost, privacy, and subscription-powered AI architecture
+
+## Current web features
+
+- Browser-local Food-101 photo classification with explicit user confirmation
+- Common foods, custom ingredients, portions, macros, and daily meal totals
+- Scheduled meal gaps and optional browser notifications
+- Four concise gym routines with purpose, exercise cues, weight, and reps
+- Running, walking, cycling, badminton, football, swimming, tennis, hiking,
+  and mobility logs
+- Editable recomposition targets, weight entries, seven-day summaries, and a
+  completed-set muscle heat map
+
+Photo classification identifies a likely dish; it cannot reliably infer hidden
+ingredients or portion size. Recomp always asks the user to confirm the food and
+amount before logging it.
 
 ## Local setup
 
@@ -34,15 +50,18 @@ Never commit `.env.local`.
 For a temporary public test deployment, set `RECOMP_PUBLIC_ACCESS=true`. This
 bypasses browser sign-in only; the agent API still requires `RECOMP_API_KEY`.
 
-The web app defaults to `http://localhost:3000`. Mobile and agent setup are
-documented in [`mobile/README.md`](mobile/README.md) and
-[`docs/agent-api.md`](docs/agent-api.md).
+The web app defaults to `http://localhost:3000`. Mobile, agent, and AI setup are
+documented in [`mobile/README.md`](mobile/README.md),
+[`docs/agent-api.md`](docs/agent-api.md), and
+[`docs/ai-modes.md`](docs/ai-modes.md).
 
 ## Security model
 
 - The web UI uses a signed, HttpOnly admin session.
 - The API uses a separate bearer key and is read-only.
 - The MCP adapter runs locally over stdio and does not expose an MCP port.
+- Browser-local meal photos are resized before storage and never sent to the
+  Recomp server.
 - Agent writes remain disabled until persistent storage, confirmations, and an
   audit log are implemented.
 

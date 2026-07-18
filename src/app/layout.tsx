@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Fraunces } from "next/font/google";
+import Script from "next/script";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -10,7 +11,7 @@ const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Recomp",
-  description: "AI-assisted body recomposition tracker — meals, macros, workouts, weight.",
+  description: "Private meal, macro, training, activity, and body recomposition tracker.",
   robots: { index: false, follow: false },
 };
 
@@ -19,6 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable}`}>
         <Providers>{children}</Providers>
+        <Script id="recomp-theme" strategy="beforeInteractive">
+          {`try{var t=localStorage.getItem("recomp-theme");document.documentElement.classList.toggle("dark",t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))}catch(e){document.documentElement.classList.add("dark")}`}
+        </Script>
       </body>
     </html>
   );
