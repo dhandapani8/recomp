@@ -1,118 +1,190 @@
 "use client";
 
-import { Muscle } from "@/lib/recomp-domain";
+import { ContactShadows, OrbitControls, useGLTF } from "@react-three/drei";
+import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { Mesh, MeshStandardMaterial, type Material, type Object3D } from "three";
+
+import type { Muscle } from "@/lib/recomp-domain";
 
 type MuscleScores = Partial<Record<Muscle, number>>;
 
+const MODEL_PATH = "/models/muscular.glb";
+
 const COLORS = {
-  idle: "#d9ddd9",
-  outline: "#717871",
-  low: "#a9d6bd",
-  medium: "#3bbf73",
-  high: "#ff6b4a",
+  idle: "#727a75",
+  low: "#9fcab1",
+  medium: "#32bb72",
+  high: "#ff6548",
+  body: "#424844",
 };
 
-function muscleColor(score = 0) {
-  if (score >= 6) return COLORS.high;
-  if (score >= 3) return COLORS.medium;
+const MUSCLE_PATTERNS: Record<Muscle, string[]> = {
+  shoulders: ["delt_"],
+  chest: ["pec_"],
+  biceps: ["bicep_", "brachialis", "brachioradialis", "forearm_flexors"],
+  triceps: ["tricep_", "forearm_extensors"],
+  core: ["rectus_", "obliques", "transverse"],
+  back: ["rhomboids", "lats", "trap_", "erectors", "teres_", "infraspinatus"],
+  glutes: ["glute_"],
+  quads: ["rectus_femoris", "vastus_", "adductors", "hip_flexors"],
+  hamstrings: ["biceps_femoris_", "semimembranosus", "semitendinosus"],
+  calves: ["gastroc_", "soleus", "tibialis_anterior"],
+};
+
+function muscleColor(score = 0, periodDays = 7) {
+  const periodWeeks = Math.max(1, periodDays / 7);
+  if (score >= 6 * periodWeeks) return COLORS.high;
+  if (score >= 3 * periodWeeks) return COLORS.medium;
   if (score > 0) return COLORS.low;
   return COLORS.idle;
 }
 
-function Region({
-  d,
-  muscle,
+function muscleForObject(object: Object3D): Muscle | null {
+  const name = object.name.toLowerCase();
+  return (
+    (Object.entries(MUSCLE_PATTERNS) as [Muscle, string[]][]).find(([, patterns]) =>
+      patterns.some((pattern) => name.includes(pattern)),
+    )?.[0] ?? null
+  );
+}
+
+function paintMaterial(material: Material, color: string, active: boolean) {
+  if (!(material instanceof MeshStandardMaterial)) return;
+  material.color.set(color);
+  material.roughness = active ? 0.42 : 0.58;
+  material.metalness = 0.02;
+  material.emissive.set(color);
+  material.emissiveIntensity = active ? 0.1 : 0;
+}
+
+function AnatomicalModel({
+  periodDays,
   scores,
+  onHover,
 }: {
-  d: string;
-  muscle: Muscle;
+  periodDays: number;
   scores: MuscleScores;
+  onHover: (muscle: Muscle | null) => void;
 }) {
-  const score = scores[muscle] ?? 0;
+  const { scene } = useGLTF(MODEL_PATH);
+  const model = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((object) => {
+      if (!(object instanceof Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      object.material = Array.isArray(object.material)
+        ? object.material.map((material) => material.clone())
+        : object.material.clone();
+      object.userData.recompMuscle = muscleForObject(object);
+    });
+    return clone;
+  }, [scene]);
+
+  useEffect(() => {
+    model.traverse((object) => {
+      if (!(object instanceof Mesh)) return;
+      const muscle = object.userData.recompMuscle as Muscle | null;
+      const score = muscle ? scores[muscle] ?? 0 : 0;
+      const color = muscle ? muscleColor(score, periodDays) : COLORS.body;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => paintMaterial(material, color, score > 0));
+    });
+  }, [model, periodDays, scores]);
+
+  function enter(event: ThreeEvent<PointerEvent>) {
+    event.stopPropagation();
+    const muscle = event.object.userData.recompMuscle as Muscle | null;
+    onHover(muscle);
+    document.body.style.cursor = muscle ? "pointer" : "grab";
+  }
+
+  function leave() {
+    onHover(null);
+    document.body.style.cursor = "";
+  }
+
   return (
-    <path
-      d={d}
-      fill={muscleColor(score)}
-      stroke="rgba(20, 30, 24, 0.28)"
-      strokeWidth="0.7"
-    >
-      <title>{`${muscle}: ${score} working sets`}</title>
-    </path>
+    <group>
+      <primitive
+        object={model}
+        onPointerOut={leave}
+        onPointerOver={enter}
+        position={[0, -3.18, 0]}
+        scale={4.05}
+      />
+      <mesh castShadow position={[0, 3.03, -0.01]} receiveShadow scale={[0.42, 0.54, 0.4]}>
+        <sphereGeometry args={[1, 32, 24]} />
+        <meshStandardMaterial color={COLORS.body} metalness={0.02} roughness={0.6} />
+      </mesh>
+      <mesh castShadow position={[0, 2.67, 0]} receiveShadow scale={[0.33, 0.32, 0.34]}>
+        <sphereGeometry args={[1, 28, 20]} />
+        <meshStandardMaterial color={COLORS.body} metalness={0.02} roughness={0.6} />
+      </mesh>
+    </group>
   );
 }
 
-function FrontBody({ scores }: { scores: MuscleScores }) {
+function LoadingBody() {
   return (
-    <svg viewBox="0 0 160 330" role="img" aria-label="Front muscle heat map">
-      <g transform="translate(20 4)">
-        <circle cx="60" cy="28" r="20" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.5" />
-        <path d="M48 47 L44 59 L76 59 L72 47 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-
-        <Region d="M44 59 C33 60 24 68 22 83 L37 91 L47 75 L60 81 L60 60 Z" muscle="shoulders" scores={scores} />
-        <Region d="M76 59 C87 60 96 68 98 83 L83 91 L73 75 L60 81 L60 60 Z" muscle="shoulders" scores={scores} />
-        <Region d="M47 75 C49 69 54 66 60 66 C66 66 71 69 73 75 L70 101 L60 106 L50 101 Z" muscle="chest" scores={scores} />
-
-        <Region d="M22 83 C16 104 13 128 17 148 L30 146 L34 113 L37 91 Z" muscle="biceps" scores={scores} />
-        <Region d="M98 83 C104 104 107 128 103 148 L90 146 L86 113 L83 91 Z" muscle="biceps" scores={scores} />
-        <Region d="M17 148 C14 164 13 181 16 194 L27 194 L30 146 Z" muscle="triceps" scores={scores} />
-        <Region d="M103 148 C106 164 107 181 104 194 L93 194 L90 146 Z" muscle="triceps" scores={scores} />
-
-        <Region d="M50 101 L60 106 L70 101 L73 142 L67 166 L53 166 L47 142 Z" muscle="core" scores={scores} />
-        <path d="M47 142 L53 166 L43 184 L35 159 L37 113 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-        <path d="M73 142 L67 166 L77 184 L85 159 L83 113 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-
-        <Region d="M43 184 C37 207 36 238 41 263 L57 260 L60 185 Z" muscle="quads" scores={scores} />
-        <Region d="M77 184 C83 207 84 238 79 263 L63 260 L60 185 Z" muscle="quads" scores={scores} />
-        <Region d="M41 263 C38 281 39 302 44 318 L56 318 L57 260 Z" muscle="calves" scores={scores} />
-        <Region d="M79 263 C82 281 81 302 76 318 L64 318 L63 260 Z" muscle="calves" scores={scores} />
-      </g>
-    </svg>
-  );
-}
-
-function BackBody({ scores }: { scores: MuscleScores }) {
-  return (
-    <svg viewBox="0 0 160 330" role="img" aria-label="Back muscle heat map">
-      <g transform="translate(20 4)">
-        <circle cx="60" cy="28" r="20" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.5" />
-        <path d="M48 47 L44 59 L76 59 L72 47 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-
-        <Region d="M44 59 C33 60 24 68 22 83 L37 91 L48 76 L60 82 L60 60 Z" muscle="shoulders" scores={scores} />
-        <Region d="M76 59 C87 60 96 68 98 83 L83 91 L72 76 L60 82 L60 60 Z" muscle="shoulders" scores={scores} />
-        <Region d="M48 76 L60 82 L72 76 L83 112 L75 151 L60 166 L45 151 L37 112 Z" muscle="back" scores={scores} />
-
-        <Region d="M22 83 C16 104 13 128 17 148 L30 146 L34 113 L37 91 Z" muscle="triceps" scores={scores} />
-        <Region d="M98 83 C104 104 107 128 103 148 L90 146 L86 113 L83 91 Z" muscle="triceps" scores={scores} />
-        <path d="M17 148 C14 164 13 181 16 194 L27 194 L30 146 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-        <path d="M103 148 C106 164 107 181 104 194 L93 194 L90 146 Z" fill={COLORS.idle} stroke={COLORS.outline} strokeWidth="1.2" />
-
-        <Region d="M45 151 L60 166 L75 151 L78 183 L60 198 L42 183 Z" muscle="glutes" scores={scores} />
-        <Region d="M42 183 C37 209 36 237 41 263 L57 260 L60 198 Z" muscle="hamstrings" scores={scores} />
-        <Region d="M78 183 C83 209 84 237 79 263 L63 260 L60 198 Z" muscle="hamstrings" scores={scores} />
-        <Region d="M41 263 C38 281 39 302 44 318 L56 318 L57 260 Z" muscle="calves" scores={scores} />
-        <Region d="M79 263 C82 281 81 302 76 318 L64 318 L63 260 Z" muscle="calves" scores={scores} />
-      </g>
-    </svg>
+    <mesh>
+      <capsuleGeometry args={[0.5, 4.4, 8, 16]} />
+      <meshStandardMaterial color={COLORS.body} wireframe />
+    </mesh>
   );
 }
 
 export function BodyHeatmap({
   scores,
   compact = false,
+  periodDays = 7,
 }: {
   scores: MuscleScores;
   compact?: boolean;
+  periodDays?: number;
 }) {
+  const [hoveredMuscle, setHoveredMuscle] = useState<Muscle | null>(null);
+
   return (
     <div className={compact ? "heatmap heatmap-compact" : "heatmap"}>
-      <div className="heatmap-figures">
-        <div>
-          <FrontBody scores={scores} />
-          <span>Front</span>
-        </div>
-        <div>
-          <BackBody scores={scores} />
-          <span>Back</span>
+      <div className="heatmap-canvas">
+        <Canvas
+          aria-label="Interactive 3D anatomical muscle load model"
+          camera={{ fov: compact ? 30 : 29, position: [0, 0.05, compact ? 15.4 : 15] }}
+          dpr={[1, 1.75]}
+          gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+          role="img"
+          shadows
+        >
+          <ambientLight intensity={1.35} />
+          <hemisphereLight color="#fff8ed" groundColor="#26302a" intensity={1.25} />
+          <directionalLight
+            castShadow
+            intensity={2.3}
+            position={[4, 7, 6]}
+            shadow-mapSize-height={1024}
+            shadow-mapSize-width={1024}
+          />
+          <directionalLight color="#88a7ff" intensity={0.85} position={[-4, 2, -5]} />
+          <Suspense fallback={<LoadingBody />}>
+            <AnatomicalModel onHover={setHoveredMuscle} periodDays={periodDays} scores={scores} />
+          </Suspense>
+          <ContactShadows blur={2.5} far={6} opacity={0.38} position={[0, -3.22, 0]} resolution={512} scale={6} />
+          <OrbitControls
+            autoRotate={!compact}
+            autoRotateSpeed={0.45}
+            enableDamping
+            enablePan={false}
+            maxDistance={18}
+            maxPolarAngle={Math.PI / 1.7}
+            minDistance={10}
+            minPolarAngle={Math.PI / 2.4}
+          />
+        </Canvas>
+        <div className={`heatmap-readout ${hoveredMuscle ? "active" : ""}`}>
+          <strong>{hoveredMuscle ?? "Muscle load"}</strong>
+          <span>{hoveredMuscle ? `${formatScore(scores[hoveredMuscle] ?? 0)} working sets` : "Drag to inspect the anatomy"}</span>
         </div>
       </div>
       <div className="heatmap-legend" aria-label="Muscle load legend">
@@ -121,6 +193,15 @@ export function BodyHeatmap({
         <span><i style={{ background: COLORS.medium }} />Worked</span>
         <span><i style={{ background: COLORS.high }} />High</span>
       </div>
+      <a className="model-attribution" href="https://www.adamasdesigns.com/licenses" rel="noreferrer" target="_blank">
+        Open anatomy model attribution
+      </a>
     </div>
   );
 }
+
+function formatScore(score: number) {
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
+useGLTF.preload(MODEL_PATH);

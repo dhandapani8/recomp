@@ -65,9 +65,15 @@ import {
 
 type View = "today" | "food" | "training" | "progress";
 type RecognitionState = "idle" | "loading" | "ready" | "error";
+type MetricRange = "day" | "week" | "month" | "year";
 
 const STORE_KEY = "recomp-v2";
-const DAY_MS = 86_400_000;
+const METRIC_RANGES: Array<{ id: MetricRange; label: string; days: number }> = [
+  { id: "day", label: "Day", days: 1 },
+  { id: "week", label: "Week", days: 7 },
+  { id: "month", label: "Month", days: 30 },
+  { id: "year", label: "Year", days: 365 },
+];
 
 const NAV_ITEMS = [
   { id: "today" as const, label: "Today", icon: CircleGauge },
@@ -128,12 +134,13 @@ function currentMealSlot(): MealSlot {
   return "Dinner";
 }
 
-function getMuscleScores(sessions: StrengthSession[]) {
+function getMuscleScores(sessions: StrengthSession[], days = 7) {
   const scores: Partial<Record<Muscle, number>> = {};
-  const cutoff = Date.now() - 7 * DAY_MS;
+  const cutoff = recentDates(days)[0];
+  const today = todayIso();
 
   sessions
-    .filter((session) => new Date(`${session.date}T12:00:00`).getTime() >= cutoff)
+    .filter((session) => session.date >= cutoff && session.date <= today)
     .forEach((session) => {
       session.exercises.forEach((exercise) => {
         const completed = exercise.sets.filter((set) => set.completed).length;
@@ -1093,67 +1100,176 @@ function MiniBars({
   );
 }
 
+function buildCalorieBuckets(range: MetricRange, dates: string[], meals: MealEntry[]) {
+  if (range === "day") {
+    return MEAL_SCHEDULE.map(({ slot }) => ({
+      id: slot,
+      label: slot,
+      value: sumMacros(meals.filter((meal) => meal.slot === slot).map(mealMacros)).calories,
+    }));
+  }
+
+  function averageFor(groupDates: string[]) {
+    const totals = groupDates.map((date) =>
+      sumMacros(meals.filter((meal) => meal.date === date).map(mealMacros)).calories
+    );
+    const logged = totals.filter((value) => value > 0);
+    return logged.length ? Math.round(logged.reduce((total, value) => total + value, 0) / logged.length) : 0;
+  }
+
+  if (range === "week") {
+    return dates.map((date) => ({
+      id: date,
+      label: new Intl.DateTimeFormat("en", { weekday: "narrow" }).format(new Date(`${date}T12:00:00`)),
+      value: averageFor([date]),
+    }));
+  }
+
+  if (range === "month") {
+    return Array.from({ length: 6 }, (_, index) => {
+      const group = dates.slice(index * 5, index * 5 + 5);
+      return {
+        id: group[0],
+        label: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(`${group[0]}T12:00:00`)),
+        value: averageFor(group),
+      };
+    });
+  }
+
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+    const id = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+    const monthDates = dates.filter((date) => date.startsWith(id));
+    return {
+      id,
+      label: new Intl.DateTimeFormat("en", { month: "short" }).format(month),
+      value: averageFor(monthDates),
+    };
+  });
+}
+
 function ProgressView({
   store,
-  muscleScores,
   saveGoals,
   addWeight,
 }: {
   store: RecompStore;
-  muscleScores: Partial<Record<Muscle, number>>;
   saveGoals: (goals: GoalSettings) => void;
   addWeight: (weight: number) => void;
 }) {
-  const dates = recentDates(7);
-  const dailyCalories = dates.map((date) => ({
-    id: date,
-    label: new Intl.DateTimeFormat("en", { weekday: "narrow" }).format(new Date(`${date}T12:00:00`)),
-    value: sumMacros(store.meals.filter((meal) => meal.date === date).map(mealMacros)).calories,
-  }));
-  const averageCalories = dailyCalories.reduce((total, day) => total + day.value, 0) / 7;
-  const loggedDays = dailyCalories.filter((day) => day.value > 0).length;
-  const weeklySets = Object.values(muscleScores).reduce((total, value) => total + (value ?? 0), 0);
+  const [range, setRange] = useState<MetricRange>("week");
+  const rangeConfig = METRIC_RANGES.find((item) => item.id === range) ?? METRIC_RANGES[1];
+  const dates = useMemo(() => recentDates(rangeConfig.days), [rangeConfig.days]);
+  const rangeMeals = store.meals.filter((meal) => dates.includes(meal.date));
+  const rangeSessions = store.strengthSessions.filter((session) => dates.includes(session.date));
+  const rangeWeights = store.weights.filter((entry) => dates.includes(entry.date));
+  const muscleScores = useMemo(
+    () => getMuscleScores(store.strengthSessions, rangeConfig.days),
+    [rangeConfig.days, store.strengthSessions],
+  );
+  const calorieBuckets = buildCalorieBuckets(range, dates, rangeMeals);
+  const dailyTotals = dates.map((date) =>
+    sumMacros(rangeMeals.filter((meal) => meal.date === date).map(mealMacros))
+  );
+  const loggedTotals = dailyTotals.filter((total) => total.calories > 0);
+  const loggedDays = loggedTotals.length;
+  const averageCalories = loggedDays
+    ? loggedTotals.reduce((total, day) => total + day.calories, 0) / loggedDays
+    : 0;
+  const averageProtein = loggedDays
+    ? loggedTotals.reduce((total, day) => total + day.protein, 0) / loggedDays
+    : 0;
+  const workingSets = rangeSessions.reduce((sessionTotal, session) =>
+    sessionTotal + session.exercises.reduce((exerciseTotal, exercise) =>
+      exerciseTotal + exercise.sets.filter((set) => set.completed).length, 0
+    ), 0
+  );
   const activityMinutes = store.activities
     .filter((entry) => dates.includes(entry.date))
     .reduce((total, entry) => total + entry.durationMinutes, 0);
-  const sortedWeights = [...store.weights].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedWeights = [...rangeWeights].sort((a, b) => a.date.localeCompare(b.date));
   const weightChange = sortedWeights.length > 1
     ? roundMacro(sortedWeights.at(-1)!.weightKg - sortedWeights[0].weightKg)
     : null;
+  const expectedSessions = Math.max(1, Math.round(store.goals.trainingDays * rangeConfig.days / 7));
+  const loggingCoverage = loggedDays / rangeConfig.days;
+  const chartTarget = range === "day" ? Math.round(store.goals.calories / 4) : store.goals.calories;
+
+  const nutritionSuggestion = loggedDays === 0
+    ? { title: "Log the first meal.", detail: "One complete day gives the dashboard something real to work with." }
+    : averageProtein < store.goals.protein * 0.8
+      ? { title: "Close the protein gap.", detail: `You averaged ${Math.round(averageProtein)}g against a ${store.goals.protein}g target.` }
+      : loggingCoverage < 0.6
+        ? { title: "Complete more food days.", detail: `${loggedDays} of ${rangeConfig.days} days contain nutrition data.` }
+        : { title: "Nutrition is in a useful range.", detail: "Keep portions consistent before changing the calorie target." };
+
+  const trainingSuggestion = rangeSessions.length < expectedSessions
+    ? {
+        title: "Schedule the next strength session.",
+        detail: `${rangeSessions.length} of roughly ${expectedSessions} sessions are recorded for this ${rangeConfig.label.toLowerCase()}.`,
+      }
+    : {
+        title: "Progress one familiar lift.",
+        detail: "Add a rep or a small amount of weight while keeping the same clean technique.",
+      };
+
+  const trendSuggestion = sortedWeights.length < 2
+    ? { title: "Add another weigh-in.", detail: "Two or more measurements reveal direction without overreacting to one day." }
+    : {
+        title: weightChange === 0 ? "The recorded trend is flat." : "Use the trend, not one measurement.",
+        detail: `Recorded change for this ${rangeConfig.label.toLowerCase()}: ${weightChange! > 0 ? "+" : ""}${weightChange} kg.`,
+      };
 
   return (
     <div className="view-stack">
-      <div className="view-heading">
+      <div className="view-heading progress-heading">
         <div><p>Progress</p><h1>See what your habits are building</h1></div>
+        <div className="metric-range" aria-label="Metric time range">
+          {METRIC_RANGES.map((item) => (
+            <button
+              aria-pressed={range === item.id}
+              className={range === item.id ? "active" : ""}
+              key={item.id}
+              onClick={() => setRange(item.id)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="insight-stats">
-        <div><span><Utensils size={17} /></span><strong>{loggedDays}/7</strong><small>days logged</small></div>
+        <div><span><Utensils size={17} /></span><strong>{loggedDays}/{rangeConfig.days}</strong><small>days logged</small></div>
         <div><span><Target size={17} /></span><strong>{Math.round(averageCalories)}</strong><small>avg kcal</small></div>
-        <div><span><Dumbbell size={17} /></span><strong>{Math.round(weeklySets)}</strong><small>muscle sets</small></div>
+        <div><span><Dumbbell size={17} /></span><strong>{workingSets}</strong><small>working sets</small></div>
         <div><span><Activity size={17} /></span><strong>{activityMinutes}</strong><small>activity min</small></div>
       </div>
 
       <div className="progress-layout">
-        <Card className="large-heatmap">
-          <SectionHeading eyebrow="Training balance" title="7-day muscle heat map" />
-          <BodyHeatmap scores={muscleScores} />
-          <p className="panel-note">Primary muscles receive a full set; secondary muscles receive half. The map reflects completed sets, not camera guesses.</p>
-        </Card>
+        <section className="body-analysis">
+          <SectionHeading eyebrow={`${rangeConfig.label} training balance`} title="3D muscle load" />
+          <BodyHeatmap periodDays={rangeConfig.days} scores={muscleScores} />
+          <p className="panel-note">Primary muscles receive a full set; secondary muscles receive half. The model reflects completed sets.</p>
+        </section>
 
         <div className="progress-side">
           <Card>
-            <SectionHeading eyebrow="Nutrition consistency" title="Calories by day" />
-            <MiniBars target={store.goals.calories} values={dailyCalories} />
+            <SectionHeading
+              eyebrow="Nutrition consistency"
+              title={range === "day" ? "Calories by meal" : "Average calories"}
+            />
+            <MiniBars target={chartTarget} values={calorieBuckets} />
             <div className="target-line"><span>Daily target</span><strong>{store.goals.calories} kcal</strong></div>
           </Card>
 
           <Card>
-            <SectionHeading eyebrow="Recomp signal" title="What to do next" />
+            <SectionHeading eyebrow={`${rangeConfig.label} suggestions`} title="What to do next" />
             <div className="insight-list">
-              <div><Check size={15} /><span><strong>Log consistently before adjusting.</strong><small>{loggedDays < 5 ? "More complete days will make the weekly trend useful." : "Your logging coverage is strong enough to compare against weight."}</small></span></div>
-              <div><Dumbbell size={15} /><span><strong>Keep strength measurable.</strong><small>{weeklySets < 20 ? "Complete two or three simple sessions this week." : "Training volume is in a useful range; progress load or reps slowly."}</small></span></div>
-              <div><Weight size={15} /><span><strong>Use the weight trend.</strong><small>{weightChange === null ? "Add two or more weigh-ins to see direction." : `Current recorded change: ${weightChange > 0 ? "+" : ""}${weightChange} kg.`}</small></span></div>
+              <div><Check size={15} /><span><strong>{nutritionSuggestion.title}</strong><small>{nutritionSuggestion.detail}</small></span></div>
+              <div><Dumbbell size={15} /><span><strong>{trainingSuggestion.title}</strong><small>{trainingSuggestion.detail}</small></span></div>
+              <div><Weight size={15} /><span><strong>{trendSuggestion.title}</strong><small>{trendSuggestion.detail}</small></span></div>
             </div>
           </Card>
         </div>
@@ -1381,7 +1497,6 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
               ...current,
               weights: [{ id: uid("weight"), date: todayIso(), weightKg }, ...current.weights.filter((entry) => entry.date !== todayIso())],
             }))}
-            muscleScores={muscleScores}
             saveGoals={(goals) => setStore((current) => ({ ...current, goals }))}
             store={store}
           />

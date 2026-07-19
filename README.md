@@ -23,8 +23,9 @@ upload meal photos or health data to an AI provider by default.
 - Four concise gym routines with purpose, exercise cues, weight, and reps
 - Running, walking, cycling, badminton, football, swimming, tennis, hiking,
   and mobility logs
-- Editable recomposition targets, weight entries, seven-day summaries, and a
-  completed-set muscle heat map
+- Editable recomposition targets and weight entries
+- Day, week, month, and year progress metrics with contextual suggestions
+- An interactive 3D muscle model driven by completed working sets
 
 Photo classification identifies a likely dish; it cannot reliably infer hidden
 ingredients or portion size. Recomp always asks the user to confirm the food and
@@ -72,3 +73,7 @@ sensitive personal data.
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
+
+The optimized anatomical model in `public/models/muscular.glb` is licensed
+separately under CC BY-SA 4.0. See
+[`public/models/README.md`](public/models/README.md) for attribution.

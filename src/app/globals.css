@@ -796,41 +796,60 @@ button {
 
 .heatmap {
   display: grid;
-  gap: 14px;
-  margin: 0 auto;
-  max-width: 530px;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
-.heatmap-figures {
+.heatmap-canvas {
+  background: color-mix(in srgb, var(--re-surface) 72%, transparent);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  height: clamp(430px, 58vh, 620px);
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+}
+
+.heatmap-canvas canvas {
+  display: block;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.heatmap-compact .heatmap-canvas {
+  border: 0;
+  height: 245px;
+}
+
+.heatmap-readout {
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  border: 1px solid var(--border);
+  bottom: 12px;
   display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  left: 12px;
+  min-width: 142px;
+  padding: 8px 10px;
+  pointer-events: none;
+  position: absolute;
 }
 
-.heatmap-figures > div {
-  display: grid;
-  justify-items: center;
+.heatmap-readout strong {
+  color: var(--text);
+  font-size: 11px;
+  text-transform: capitalize;
 }
 
-.heatmap-figures svg {
-  height: min(43vh, 360px);
-  max-width: 100%;
-  width: 160px;
-}
-
-.heatmap-figures > div > span {
+.heatmap-readout span {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 9px;
 }
 
-.heatmap-compact .heatmap-figures {
-  gap: 4px;
-}
-
-.heatmap-compact .heatmap-figures svg {
-  height: 175px;
-  width: 85px;
+.heatmap-readout.active {
+  border-color: color-mix(in srgb, var(--accent-tertiary) 55%, var(--border));
 }
 
 .heatmap-legend {
@@ -854,6 +873,22 @@ button {
   display: inline-block;
   height: 8px;
   width: 8px;
+}
+
+.heatmap-compact .heatmap-legend {
+  gap: 7px;
+}
+
+.model-attribution {
+  color: var(--text-muted);
+  display: block;
+  font-size: 8px;
+  margin-top: 9px;
+  text-align: center;
+}
+
+.model-attribution:hover {
+  color: var(--text);
 }
 
 .photo-capture {
@@ -1635,11 +1670,49 @@ button {
   font-size: 9px;
 }
 
+.metric-range {
+  background: var(--re-soft);
+  border: 1px solid var(--border);
+  display: inline-grid;
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  padding: 3px;
+}
+
+.metric-range button {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.metric-range button.active {
+  background: var(--re-surface-strong);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+}
+
 .progress-layout {
   align-items: start;
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+}
+
+.body-analysis {
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+  padding: 18px 0 12px;
+}
+
+.body-analysis .section-heading,
+.body-analysis .panel-note {
+  padding-left: 18px;
+  padding-right: 18px;
 }
 
 .progress-side {
@@ -1651,7 +1724,7 @@ button {
   align-items: end;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
   height: 160px;
   padding-top: 12px;
 }
@@ -1684,7 +1757,11 @@ button {
 .mini-bars small {
   color: var(--text-muted);
   font-size: 8px;
+  min-width: 0;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .target-line {
@@ -1737,6 +1814,16 @@ button {
   display: grid;
   gap: 9px;
   grid-template-columns: 1.2fr repeat(3, 0.75fr) auto;
+}
+
+.goal-editor > label {
+  min-width: 0;
+}
+
+.goal-editor input,
+.goal-editor select {
+  min-width: 0;
+  width: 100%;
 }
 
 .weight-quick {
@@ -1834,6 +1921,20 @@ button {
     min-height: 60px;
   }
 
+  .progress-heading {
+    flex-direction: column;
+  }
+
+  .metric-range {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .metric-range button {
+    min-width: 0;
+    padding: 0 5px;
+  }
+
   .today-heading h1,
   .view-heading h1 {
     font-size: 23px;
@@ -1872,6 +1973,14 @@ button {
 
   .dashboard-side {
     grid-template-columns: 1fr;
+  }
+
+  .heatmap-canvas {
+    height: 500px;
+  }
+
+  .heatmap-compact .heatmap-canvas {
+    height: 265px;
   }
 
   .dashboard-side .coach-card {
