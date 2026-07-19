@@ -18,10 +18,12 @@ import {
   Info,
   Layers3,
   Minus,
+  MoonStar,
   Plus,
   Save,
   ScanLine,
   Search,
+  Sunrise,
   Sparkles,
   Target,
   Timer,
@@ -62,13 +64,15 @@ import {
   RoutineDefinition,
   roundMacro,
   scaleMacros,
+  SleepEntry,
+  SleepQuality,
   StrengthSession,
   sumMacros,
   todayIso,
   uid,
 } from "@/lib/recomp-domain";
 
-type View = "today" | "food" | "training" | "progress";
+type View = "today" | "food" | "training" | "sleep" | "progress";
 type RecognitionState = "idle" | "loading" | "ready" | "error";
 type MetricRange = "day" | "week" | "month" | "year";
 
@@ -84,6 +88,7 @@ const NAV_ITEMS = [
   { id: "today" as const, label: "Today", icon: CircleGauge },
   { id: "food" as const, label: "Food", icon: Utensils },
   { id: "training" as const, label: "Training", icon: Dumbbell },
+  { id: "sleep" as const, label: "Sleep", icon: MoonStar },
   { id: "progress" as const, label: "Progress", icon: BarChart3 },
 ];
 
@@ -186,6 +191,35 @@ function compactNumber(value: number) {
   }).format(value);
 }
 
+function sleepDuration(bedtime: string, wakeTime: string) {
+  const [bedHour, bedMinute] = bedtime.split(":").map(Number);
+  const [wakeHour, wakeMinute] = wakeTime.split(":").map(Number);
+  if ([bedHour, bedMinute, wakeHour, wakeMinute].some(Number.isNaN)) return 0;
+  const bed = bedHour * 60 + bedMinute;
+  let wake = wakeHour * 60 + wakeMinute;
+  if (wake <= bed) wake += 24 * 60;
+  return clamp(wake - bed, 0, 16 * 60);
+}
+
+function formatDuration(minutes: number) {
+  if (!minutes) return "—";
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours}h${remainder ? ` ${remainder}m` : ""}`;
+}
+
+function sleepQualityLabel(quality: SleepQuality) {
+  return ["", "Poor", "Fair", "Good", "Great", "Excellent"][quality];
+}
+
+function averageSleep(entries: SleepEntry[]) {
+  if (!entries.length) return { duration: 0, quality: 0 };
+  return {
+    duration: Math.round(entries.reduce((total, entry) => total + entry.durationMinutes, 0) / entries.length),
+    quality: roundMacro(entries.reduce((total, entry) => total + entry.quality, 0) / entries.length),
+  };
+}
+
 function weightTrend(weights: RecompStore["weights"]) {
   const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
   if (!sorted.length) return { current: null, delta: null };
@@ -219,22 +253,30 @@ function weeklySignals(store: RecompStore) {
     .filter((activity) => dates.includes(activity.date))
     .reduce((total, activity) => total + activity.durationMinutes, 0);
   const weighIns = store.weights.filter((entry) => dates.includes(entry.date)).length;
+  const sleepEntries = store.sleepEntries.filter((entry) => dates.includes(entry.date));
+  const sleepTargetMinutes = store.goals.sleepHours * 60;
+  const sleepScore = sleepEntries.length
+    ? sleepEntries.reduce((total, entry) => total + clamp(entry.durationMinutes / sleepTargetMinutes, 0, 1), 0) / sleepEntries.length
+    : 0;
   const muscleScores = getMuscleScores(store.strengthSessions, 7);
   const muscleCoverage = Object.values(muscleScores).filter((score) => (score ?? 0) > 0).length;
-  const momentum = Math.round(
+  const baseMomentum =
     25 * (logged.length / 7) +
     20 * (proteinDays / 7) +
     25 * Math.min(1, sessions.length / Math.max(1, store.goals.trainingDays)) +
     15 * Math.min(1, (activityMinutes + sessions.length * 45) / 150) +
     5 * Math.min(1, weighIns / 3) +
-    10 * Math.min(1, store.meals.filter((meal) => meal.date === todayIso()).length / 4),
-  );
+    10 * Math.min(1, store.meals.filter((meal) => meal.date === todayIso()).length / 4);
+  const momentum = Math.round(sleepEntries.length
+    ? (baseMomentum + 15 * sleepScore) / 1.15
+    : baseMomentum);
   return {
     activityMinutes,
     loggedDays: logged.length,
     momentum: clamp(momentum, 0, 100),
     muscleCoverage,
     proteinDays,
+    sleepEntries,
     sessions,
     targetDays,
   };
@@ -289,6 +331,7 @@ function RecompCockpit({
 }) {
   const signals = weeklySignals(store);
   const trend = weightTrend(store.weights);
+  const lastSleep = [...store.sleepEntries].sort((a, b) => b.date.localeCompare(a.date))[0];
   const proteinLeft = Math.max(0, store.goals.protein - totals.protein);
   const caloriesLeft = Math.max(0, store.goals.calories - totals.calories);
   const hasMealToday = store.meals.some((meal) => meal.date === todayIso());
@@ -318,6 +361,7 @@ function RecompCockpit({
       <div className="cockpit-signals">
         <div><Target size={16} /><span><strong>{signals.targetDays}/7</strong><small>target days</small></span></div>
         <div><Dumbbell size={16} /><span><strong>{signals.sessions.length}/{store.goals.trainingDays}</strong><small>strength</small></span></div>
+        <div><MoonStar size={16} /><span><strong>{lastSleep ? formatDuration(lastSleep.durationMinutes) : "Log"}</strong><small>last sleep</small></span></div>
         <div><TrendingUp size={16} /><span><strong>{trend.current === null ? "—" : `${trend.current} kg`}</strong><small>trend weight</small></span></div>
       </div>
     </section>
@@ -590,6 +634,7 @@ function TodayView({
 }) {
   const latestTraining = store.strengthSessions[0];
   const todayActivities = store.activities.filter((entry) => entry.date === todayIso());
+  const lastSleep = [...store.sleepEntries].sort((a, b) => b.date.localeCompare(a.date))[0];
 
   function logSlot(slot: MealSlot) {
     setMealSlot(slot);
@@ -652,6 +697,27 @@ function TodayView({
                 ))}
               </div>
             ) : <div className="empty-state compact"><Activity size={18} /><span>No activity logged today.</span></div>}
+          </Card>
+
+          <Card className="today-sleep-card">
+            <SectionHeading
+              action={<SecondaryButton icon={Plus} onClick={() => setView("sleep")}>{lastSleep ? "Update" : "Log"}</SecondaryButton>}
+              eyebrow="Recovery"
+              title="Last sleep"
+            />
+            {lastSleep ? (
+              <div className="today-sleep-summary">
+                <MoonStar size={24} />
+                <span><strong>{formatDuration(lastSleep.durationMinutes)}</strong><small>{lastSleep.bedtime} – {lastSleep.wakeTime}</small></span>
+                <span><strong>{lastSleep.quality}/5</strong><small>{sleepQualityLabel(lastSleep.quality)}</small></span>
+              </div>
+            ) : (
+              <button className="sleep-empty-action" onClick={() => setView("sleep")} type="button">
+                <MoonStar size={20} />
+                <span><strong>Add last night</strong><small>Make recovery part of today&apos;s guidance.</small></span>
+                <ChevronRight size={16} />
+              </button>
+            )}
           </Card>
         </div>
       </div>
@@ -1221,6 +1287,7 @@ function GoalEditor({
       <label><span>Calories</span><input inputMode="numeric" onChange={(event) => setDraft((current) => ({ ...current, calories: Number(event.target.value) || 0 }))} value={draft.calories} /></label>
       <label><span>Protein g</span><input inputMode="numeric" onChange={(event) => setDraft((current) => ({ ...current, protein: Number(event.target.value) || 0 }))} value={draft.protein} /></label>
       <label><span>Training days</span><input inputMode="numeric" max={7} min={1} onChange={(event) => setDraft((current) => ({ ...current, trainingDays: Number(event.target.value) || 1 }))} value={draft.trainingDays} /></label>
+      <label><span>Sleep hours</span><input inputMode="decimal" max={12} min={4} onChange={(event) => setDraft((current) => ({ ...current, sleepHours: Number(event.target.value) || 8 }))} value={draft.sleepHours} /></label>
       <PrimaryButton icon={Save} onClick={() => onSave(draft)}>Save goals</PrimaryButton>
       <div className="weight-quick">
         <label><span>Today&apos;s weight</span><input inputMode="decimal" onChange={(event) => setWeight(event.target.value)} placeholder="kg" value={weight} /></label>
@@ -1246,6 +1313,232 @@ function MiniBars({
           <small>{item.label}</small>
         </div>
       ))}
+    </div>
+  );
+}
+
+function buildSleepBuckets(range: MetricRange, dates: string[], entries: SleepEntry[]) {
+  function averageFor(groupDates: string[]) {
+    const values = entries
+      .filter((entry) => groupDates.includes(entry.date))
+      .map((entry) => entry.durationMinutes);
+    return values.length ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : 0;
+  }
+
+  if (range === "day") {
+    return [{
+      id: dates[0],
+      label: "Last night",
+      value: averageFor(dates),
+    }];
+  }
+
+  if (range === "week") {
+    return dates.map((date) => ({
+      id: date,
+      label: new Intl.DateTimeFormat("en", { weekday: "narrow" }).format(new Date(`${date}T12:00:00`)),
+      value: averageFor([date]),
+    }));
+  }
+
+  if (range === "month") {
+    return Array.from({ length: 6 }, (_, index) => {
+      const group = dates.slice(index * 5, index * 5 + 5);
+      return {
+        id: group[0],
+        label: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(`${group[0]}T12:00:00`)),
+        value: averageFor(group),
+      };
+    });
+  }
+
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+    const id = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+    return {
+      id,
+      label: new Intl.DateTimeFormat("en", { month: "short" }).format(month),
+      value: averageFor(dates.filter((date) => date.startsWith(id))),
+    };
+  });
+}
+
+function SleepView({
+  entries,
+  targetHours,
+  onSave,
+  onDelete,
+}: {
+  entries: SleepEntry[];
+  targetHours: number;
+  onSave: (entry: SleepEntry) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [range, setRange] = useState<MetricRange>("week");
+  const [date, setDate] = useState(todayIso());
+  const [bedtime, setBedtime] = useState("23:00");
+  const [wakeTime, setWakeTime] = useState("07:00");
+  const [quality, setQuality] = useState<SleepQuality>(3);
+  const [interruptions, setInterruptions] = useState(0);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const selectedEntry = entries.find((entry) => entry.date === date);
+  const duration = sleepDuration(bedtime, wakeTime);
+  const rangeConfig = METRIC_RANGES.find((item) => item.id === range) ?? METRIC_RANGES[1];
+  const dates = useMemo(() => recentDates(rangeConfig.days), [rangeConfig.days]);
+  const rangeEntries = entries.filter((entry) => dates.includes(entry.date));
+  const averages = averageSleep(rangeEntries);
+  const targetMinutes = targetHours * 60;
+  const targetNights = rangeEntries.filter((entry) => entry.durationMinutes >= targetMinutes * 0.9).length;
+  const bedtimeValues = rangeEntries.map((entry) => {
+    const [hour, minute] = entry.bedtime.split(":").map(Number);
+    return (hour < 12 ? hour + 24 : hour) * 60 + minute;
+  });
+  const bedtimeSpread = bedtimeValues.length > 1 ? Math.max(...bedtimeValues) - Math.min(...bedtimeValues) : 0;
+  const buckets = buildSleepBuckets(range, dates, rangeEntries);
+  const sleepSuggestion = !rangeEntries.length
+    ? { title: "Log last night.", detail: "Sleep can only shape recovery guidance after you add a real night." }
+    : averages.duration < targetMinutes - 30
+      ? { title: "Protect another 30–60 minutes.", detail: `Your average is ${formatDuration(averages.duration)} against a ${formatDuration(targetMinutes)} target.` }
+      : bedtimeSpread > 60
+        ? { title: "Anchor the start of your night.", detail: `Bedtime moved by ${formatDuration(bedtimeSpread)} across the logged range.` }
+        : averages.quality < 3
+          ? { title: "Keep today familiar.", detail: "Lower perceived sleep quality is a good reason to avoid testing a new maximum." }
+          : { title: "Recovery rhythm looks steady.", detail: "Keep the same sleep window while progressing training gradually." };
+
+  useEffect(() => {
+    if (selectedEntry) {
+      setBedtime(selectedEntry.bedtime);
+      setWakeTime(selectedEntry.wakeTime);
+      setQuality(selectedEntry.quality);
+      setInterruptions(selectedEntry.interruptions);
+      setNote(selectedEntry.note ?? "");
+    } else {
+      setBedtime("23:00");
+      setWakeTime("07:00");
+      setQuality(3);
+      setInterruptions(0);
+      setNote("");
+    }
+    setError("");
+  }, [date, selectedEntry?.id]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (duration < 120 || duration > 960) {
+      setError("Use a sleep window between 2 and 16 hours.");
+      return;
+    }
+    onSave({
+      id: selectedEntry?.id ?? uid("sleep"),
+      date,
+      bedtime,
+      wakeTime,
+      durationMinutes: duration,
+      quality,
+      interruptions,
+      note: note.trim() || undefined,
+      source: selectedEntry?.source ?? "manual",
+    });
+    setError("");
+  }
+
+  return (
+    <div className="view-stack sleep-view">
+      <div className="view-heading progress-heading">
+        <div><p>Sleep</p><h1>Recovery starts the night before</h1></div>
+        <div className="metric-range" aria-label="Sleep time range">
+          {METRIC_RANGES.map((item) => (
+            <button
+              aria-pressed={range === item.id}
+              className={range === item.id ? "active" : ""}
+              key={item.id}
+              onClick={() => setRange(item.id)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sleep-overview">
+        <div className="sleep-orbit" aria-label={`${formatDuration(averages.duration)} average sleep`}>
+          <MoonStar size={30} />
+          <span><strong>{formatDuration(averages.duration)}</strong><small>{rangeConfig.label} average</small></span>
+          <i style={{ "--sleep-progress": `${clamp((averages.duration / targetMinutes) * 100, 0, 100)}%` } as React.CSSProperties} />
+        </div>
+        <div><span><Sunrise size={17} /><small>Quality</small><strong>{averages.quality ? `${averages.quality}/5` : "—"}</strong></span></div>
+        <div><span><Target size={17} /><small>Target nights</small><strong>{targetNights}/{rangeEntries.length || rangeConfig.days}</strong></span></div>
+        <div><span><Timer size={17} /><small>Bedtime spread</small><strong>{bedtimeValues.length > 1 ? formatDuration(bedtimeSpread) : "—"}</strong></span></div>
+      </div>
+
+      <div className="sleep-layout">
+        <Card className="sleep-log-card">
+          <SectionHeading
+            eyebrow={selectedEntry ? "Update a night" : "Add a night"}
+            title={selectedEntry ? formatDay(date) : "Log sleep"}
+          />
+          <form className="sleep-form" onSubmit={submit}>
+            <label><span>Wake date</span><input max={todayIso()} onChange={(event) => setDate(event.target.value)} type="date" value={date} /></label>
+            <label><span>Bedtime</span><input onChange={(event) => setBedtime(event.target.value)} type="time" value={bedtime} /></label>
+            <label><span>Wake time</span><input onChange={(event) => setWakeTime(event.target.value)} type="time" value={wakeTime} /></label>
+            <div className="sleep-duration"><MoonStar size={18} /><span><strong>{formatDuration(duration)}</strong><small>calculated sleep window</small></span></div>
+            <fieldset>
+              <legend>How did it feel?</legend>
+              <div className="quality-control">
+                {([1, 2, 3, 4, 5] as SleepQuality[]).map((value) => (
+                  <button
+                    aria-pressed={quality === value}
+                    className={quality === value ? "active" : ""}
+                    key={value}
+                    onClick={() => setQuality(value)}
+                    type="button"
+                  >
+                    <strong>{value}</strong><small>{sleepQualityLabel(value)}</small>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <label><span>Interruptions</span><input inputMode="numeric" max={20} min={0} onChange={(event) => setInterruptions(Number(event.target.value) || 0)} type="number" value={interruptions} /></label>
+            <label className="sleep-note"><span>Note (optional)</span><input onChange={(event) => setNote(event.target.value)} placeholder="Late meal, hard session, travel..." value={note} /></label>
+            {error ? <p className="form-error">{error}</p> : null}
+            <PrimaryButton icon={Save} type="submit">{selectedEntry ? "Update night" : "Save night"}</PrimaryButton>
+          </form>
+        </Card>
+
+        <div className="sleep-side">
+          <Card>
+            <SectionHeading eyebrow={`${rangeConfig.label} rhythm`} title="Sleep duration" />
+            <MiniBars target={targetMinutes} values={buckets} />
+            <div className="target-line">
+              <span>{formatDuration(averages.duration)} average</span>
+              <strong>{formatDuration(targetMinutes)} target</strong>
+            </div>
+          </Card>
+          <Card>
+            <SectionHeading eyebrow="Sleep coach" title={sleepSuggestion.title} />
+            <p className="sleep-coach-copy">{sleepSuggestion.detail}</p>
+          </Card>
+        </div>
+      </div>
+
+      <Card>
+        <SectionHeading eyebrow="History" title="Recent nights" />
+        {entries.length ? (
+          <div className="sleep-history">
+            {[...entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8).map((entry) => (
+              <div key={entry.id}>
+                <span className="history-icon"><MoonStar size={16} /></span>
+                <span><strong>{formatDay(entry.date)}</strong><small>{entry.bedtime} – {entry.wakeTime}</small></span>
+                <span><strong>{formatDuration(entry.durationMinutes)}</strong><small>{sleepQualityLabel(entry.quality)} · {entry.interruptions} interruptions</small></span>
+                <IconButton label="Delete sleep entry" onClick={() => onDelete(entry.id)}><Trash2 size={16} /></IconButton>
+              </div>
+            ))}
+          </div>
+        ) : <div className="empty-state"><MoonStar size={20} /><span>No sleep logged yet.</span></div>}
+      </Card>
     </div>
   );
 }
@@ -1316,6 +1609,8 @@ function ProgressView({
   const rangeMeals = store.meals.filter((meal) => dates.includes(meal.date));
   const rangeSessions = store.strengthSessions.filter((session) => dates.includes(session.date));
   const rangeWeights = store.weights.filter((entry) => dates.includes(entry.date));
+  const rangeSleep = store.sleepEntries.filter((entry) => dates.includes(entry.date));
+  const sleepAverage = averageSleep(rangeSleep);
   const muscleScores = useMemo(
     () => getMuscleScores(store.strengthSessions, rangeConfig.days),
     [rangeConfig.days, store.strengthSessions],
@@ -1381,6 +1676,11 @@ function ProgressView({
         title: weightChange === 0 ? "The recorded trend is flat." : "Use the trend, not one measurement.",
         detail: `Recorded change for this ${rangeConfig.label.toLowerCase()}: ${weightChange! > 0 ? "+" : ""}${weightChange} kg.`,
       };
+  const sleepSuggestion = !rangeSleep.length
+    ? { title: "Add sleep to the picture.", detail: "A nightly duration and quality check makes training guidance more useful." }
+    : sleepAverage.duration < store.goals.sleepHours * 60 - 30
+      ? { title: "Give recovery more room.", detail: `${formatDuration(sleepAverage.duration)} average sleep is below your ${formatDuration(store.goals.sleepHours * 60)} target.` }
+      : { title: "Keep the sleep window steady.", detail: `${formatDuration(sleepAverage.duration)} average sleep supports gradual training progression.` };
 
   return (
     <div className="view-stack">
@@ -1408,6 +1708,7 @@ function ProgressView({
         <div><span><Dumbbell size={17} /></span><strong>{compactNumber(volume)}</strong><small>volume kg</small></div>
         <div><span><Layers3 size={17} /></span><strong>{muscleCoverage}/10</strong><small>muscles covered</small></div>
         <div><span><Activity size={17} /></span><strong>{activityMinutes}</strong><small>activity min</small></div>
+        <div><span><MoonStar size={17} /></span><strong>{formatDuration(sleepAverage.duration)}</strong><small>average sleep</small></div>
       </div>
 
       <section className="trajectory-rail" aria-label={`${rangeConfig.label} trajectory signals`}>
@@ -1471,6 +1772,7 @@ function ProgressView({
               <div><Check size={15} /><span><strong>{nutritionSuggestion.title}</strong><small>{nutritionSuggestion.detail}</small></span></div>
               <div><Dumbbell size={15} /><span><strong>{trainingSuggestion.title}</strong><small>{trainingSuggestion.detail}</small></span></div>
               <div><Weight size={15} /><span><strong>{trendSuggestion.title}</strong><small>{trendSuggestion.detail}</small></span></div>
+              <div><MoonStar size={15} /><span><strong>{sleepSuggestion.title}</strong><small>{sleepSuggestion.detail}</small></span></div>
             </div>
           </Card>
         </div>
@@ -1500,7 +1802,7 @@ function AppHeader({
       <div className="re-header-inner">
         <div className="re-brand">
           <span className="re-mark">r<span>/</span></span>
-          <div><strong>recomp</strong><small>nutrition + training</small></div>
+          <div><strong>recomp</strong><small>nutrition + training + recovery</small></div>
         </div>
         <nav className="desktop-nav" aria-label="Main navigation">
           {NAV_ITEMS.map((item) => {
@@ -1558,6 +1860,7 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
           strengthSessions: Array.isArray(parsed.strengthSessions) ? parsed.strengthSessions : [],
           activities: Array.isArray(parsed.activities) ? parsed.activities : [],
           weights: Array.isArray(parsed.weights) ? parsed.weights : [],
+          sleepEntries: Array.isArray(parsed.sleepEntries) ? parsed.sleepEntries : [],
         });
       }
     } catch {
@@ -1695,6 +1998,23 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
             saveActivity={saveActivity}
             saveStrength={saveStrength}
             store={store}
+          />
+        ) : null}
+        {view === "sleep" ? (
+          <SleepView
+            entries={store.sleepEntries}
+            onDelete={(id) => setStore((current) => ({
+              ...current,
+              sleepEntries: current.sleepEntries.filter((entry) => entry.id !== id),
+            }))}
+            onSave={(entry) => setStore((current) => ({
+              ...current,
+              sleepEntries: [
+                entry,
+                ...current.sleepEntries.filter((candidate) => candidate.date !== entry.date),
+              ],
+            }))}
+            targetHours={store.goals.sleepHours}
           />
         ) : null}
         {view === "progress" ? (

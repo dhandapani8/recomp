@@ -122,12 +122,27 @@ export type GoalSettings = {
   fat: number;
   fiber: number;
   trainingDays: number;
+  sleepHours: number;
 };
 
 export type WeightEntry = {
   id: string;
   date: string;
   weightKg: number;
+};
+
+export type SleepQuality = 1 | 2 | 3 | 4 | 5;
+
+export type SleepEntry = {
+  id: string;
+  date: string;
+  bedtime: string;
+  wakeTime: string;
+  durationMinutes: number;
+  quality: SleepQuality;
+  interruptions: number;
+  note?: string;
+  source: "manual" | "apple-health" | "health-connect";
 };
 
 export type BodyProfile = {
@@ -149,6 +164,7 @@ export type RecompStore = {
   strengthSessions: StrengthSession[];
   activities: ActivityEntry[];
   weights: WeightEntry[];
+  sleepEntries: SleepEntry[];
   bodyProfile?: BodyProfile;
   remindersEnabled: boolean;
 };
@@ -346,11 +362,13 @@ export const DEFAULT_STORE: RecompStore = {
     fat: 65,
     fiber: 30,
     trainingDays: 3,
+    sleepHours: 8,
   },
   meals: [],
   strengthSessions: [],
   activities: [],
   weights: [],
+  sleepEntries: [],
   remindersEnabled: false,
 };
 

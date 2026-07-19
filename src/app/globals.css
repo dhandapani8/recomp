@@ -525,7 +525,7 @@ button {
 .cockpit-signals {
   display: grid;
   gap: 9px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .cockpit-signals > div {
@@ -541,6 +541,10 @@ button {
 }
 
 .cockpit-signals > div:nth-child(3) {
+  color: #6c63d9;
+}
+
+.cockpit-signals > div:nth-child(4) {
   color: var(--accent-warm);
 }
 
@@ -707,6 +711,67 @@ button {
   align-content: start;
   display: grid;
   gap: 18px;
+}
+
+.today-sleep-summary {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+  padding: 4px 0;
+}
+
+.today-sleep-summary > svg {
+  color: #6c63d9;
+}
+
+.today-sleep-summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.today-sleep-summary > span:last-child {
+  text-align: right;
+}
+
+.today-sleep-summary strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.today-sleep-summary small,
+.sleep-empty-action small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.sleep-empty-action {
+  align-items: center;
+  background: var(--re-soft);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #6c63d9;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 1fr auto;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.sleep-empty-action:hover {
+  border-color: var(--border);
+}
+
+.sleep-empty-action span {
+  display: grid;
+  gap: 2px;
+}
+
+.sleep-empty-action strong {
+  color: var(--text);
+  font-size: 11px;
 }
 
 .meal-rhythm {
@@ -1243,6 +1308,7 @@ button {
 .custom-food input,
 .activity-form input,
 .activity-form select,
+.sleep-form input,
 .goal-editor input,
 .goal-editor select,
 .set-table input {
@@ -1339,6 +1405,7 @@ button {
 
 .custom-food form label,
 .activity-form label,
+.sleep-form label,
 .goal-editor > label,
 .weight-quick label {
   display: grid;
@@ -1347,6 +1414,7 @@ button {
 
 .custom-food form label span,
 .activity-form label span,
+.sleep-form label > span,
 .goal-editor label span {
   color: var(--text-muted);
   font-size: 9px;
@@ -1819,7 +1887,7 @@ button {
 .insight-stats {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .insight-stats > div {
@@ -2124,11 +2192,232 @@ button {
   line-height: 1.4;
 }
 
+.sleep-overview {
+  background: var(--re-surface-strong);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: minmax(260px, 1.35fr) repeat(3, minmax(130px, 0.65fr));
+  min-height: 130px;
+}
+
+.sleep-orbit {
+  align-items: center;
+  color: #6c63d9;
+  display: flex;
+  gap: 14px;
+  overflow: hidden;
+  padding: 24px;
+  position: relative;
+}
+
+.sleep-orbit > span {
+  display: grid;
+  gap: 2px;
+}
+
+.sleep-orbit strong {
+  color: var(--text);
+  font-family: var(--font-fraunces);
+  font-size: 30px;
+}
+
+.sleep-orbit small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.sleep-orbit > i {
+  background: linear-gradient(90deg, #6c63d9 var(--sleep-progress), var(--re-soft) var(--sleep-progress));
+  bottom: 0;
+  height: 4px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.sleep-overview > div:not(.sleep-orbit) {
+  align-items: center;
+  border-left: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.sleep-overview > div:not(.sleep-orbit) > span {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: auto 1fr;
+}
+
+.sleep-overview > div:not(.sleep-orbit) svg {
+  color: var(--accent-secondary);
+  grid-row: 1 / 3;
+  margin-right: 6px;
+}
+
+.sleep-overview > div:not(.sleep-orbit) small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.sleep-overview > div:not(.sleep-orbit) strong {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.sleep-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+}
+
+.sleep-side {
+  display: grid;
+  gap: 18px;
+}
+
+.sleep-form {
+  display: grid;
+  gap: 11px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sleep-form fieldset {
+  border: 0;
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.sleep-form legend {
+  color: var(--text-muted);
+  font-size: 9px;
+  margin-bottom: 6px;
+}
+
+.sleep-duration {
+  align-items: center;
+  background: color-mix(in srgb, #6c63d9 10%, var(--re-soft));
+  border: 1px solid color-mix(in srgb, #6c63d9 25%, var(--border));
+  border-radius: 6px;
+  color: #6c63d9;
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 11px;
+}
+
+.sleep-duration span {
+  display: grid;
+  gap: 2px;
+}
+
+.sleep-duration strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.sleep-duration small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.quality-control {
+  background: var(--re-soft);
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 3px;
+}
+
+.quality-control button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-height: 48px;
+  padding: 5px;
+}
+
+.quality-control button.active {
+  background: var(--re-surface-strong);
+  border-color: color-mix(in srgb, #6c63d9 35%, var(--border));
+  color: #6c63d9;
+}
+
+.quality-control strong {
+  font-size: 13px;
+}
+
+.quality-control small {
+  color: inherit;
+  font-size: 8px;
+}
+
+.sleep-note {
+  grid-column: span 2;
+}
+
+.sleep-form > .primary-button,
+.sleep-form > .form-error {
+  grid-column: 1 / -1;
+}
+
+.form-error {
+  color: var(--accent);
+  font-size: 10px;
+  margin: 0;
+}
+
+.sleep-coach-copy {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.sleep-history {
+  display: grid;
+}
+
+.sleep-history > div {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 34px minmax(130px, 0.7fr) minmax(180px, 1fr) auto;
+  padding: 10px 0;
+}
+
+.sleep-history > div:first-child {
+  border-top: 0;
+}
+
+.sleep-history > div > span:not(.history-icon) {
+  display: grid;
+  gap: 2px;
+}
+
+.sleep-history strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.sleep-history small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
 .goal-editor {
   align-items: end;
   display: grid;
   gap: 9px;
-  grid-template-columns: 1.2fr repeat(3, 0.75fr) auto;
+  grid-template-columns: 1.2fr repeat(4, 0.75fr) auto;
 }
 
 .goal-editor > label {
@@ -2508,7 +2797,8 @@ button {
 
   .dashboard-grid,
   .training-grid,
-  .progress-layout {
+  .progress-layout,
+  .sleep-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2538,6 +2828,14 @@ button {
 
   .insight-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sleep-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sleep-orbit {
+    grid-column: 1 / -1;
   }
 
   .trajectory-rail {
@@ -2738,6 +3036,46 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .sleep-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .sleep-orbit {
+    grid-column: auto;
+  }
+
+  .sleep-overview > div:not(.sleep-orbit) {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    justify-content: flex-start;
+    min-height: 76px;
+  }
+
+  .sleep-form {
+    grid-template-columns: 1fr;
+  }
+
+  .sleep-form fieldset,
+  .sleep-duration,
+  .sleep-note,
+  .sleep-form > .primary-button,
+  .sleep-form > .form-error {
+    grid-column: auto;
+  }
+
+  .sleep-history > div {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .sleep-history > div > span:nth-child(3) {
+    grid-column: 2;
+  }
+
+  .sleep-history > div > .icon-button {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
   .trajectory-rail {
     grid-template-columns: 1fr;
   }
@@ -2783,7 +3121,7 @@ button {
     border-top: 1px solid var(--border);
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     left: 0;
     min-height: 66px;
     padding: 5px max(8px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
