@@ -3,7 +3,8 @@
 Recomp is a self-hosted body recomposition tracker with optional AI assistance.
 It combines photo-assisted meal capture, common and custom foods, daily macro
 budgets, meal reminders, simple gym routines, sports, weight trends, coaching
-insights, a React Native mobile client, and a private agent interface.
+insights, a photo-personalized 3D body twin, a React Native mobile client, and a
+private agent interface.
 
 The current web build stores its working data in the user's browser. It does not
 upload meal photos or health data to an AI provider by default.
@@ -26,10 +27,21 @@ upload meal photos or health data to an AI provider by default.
 - Editable recomposition targets and weight entries
 - Day, week, month, and year progress metrics with contextual suggestions
 - An interactive 3D muscle model driven by completed working sets
+- An on-device Body Twin workflow that derives editable model proportions from
+  front and optional side photos
+- Recomp Momentum, nutrition adherence, protein days, strength volume, muscle
+  coverage, load rhythm, and signal-confidence views
 
 Photo classification identifies a likely dish; it cannot reliably infer hidden
 ingredients or portion size. Recomp always asks the user to confirm the food and
 amount before logging it.
+
+Body Twin uses MediaPipe segmentation in the browser. Recomp does not upload the
+reference photos; resized copies remain in that browser's local storage until
+the user deletes them. The model is a visual training aid, not a body-fat,
+medical, or biometric identity assessment. See
+[`public/mediapipe/README.md`](public/mediapipe/README.md) for the model source
+and license.
 
 ## Local setup
 

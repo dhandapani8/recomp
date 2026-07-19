@@ -130,12 +130,26 @@ export type WeightEntry = {
   weightKg: number;
 };
 
+export type BodyProfile = {
+  createdAt: string;
+  frontPhoto: string;
+  sidePhoto?: string;
+  shoulderScale: number;
+  torsoScale: number;
+  waistScale: number;
+  hipScale: number;
+  thighScale: number;
+  depthScale: number;
+  confidence: "High" | "Medium" | "Low";
+};
+
 export type RecompStore = {
   goals: GoalSettings;
   meals: MealEntry[];
   strengthSessions: StrengthSession[];
   activities: ActivityEntry[];
   weights: WeightEntry[];
+  bodyProfile?: BodyProfile;
   remindersEnabled: boolean;
 };
 

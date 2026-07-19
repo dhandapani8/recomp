@@ -2,10 +2,10 @@
 
 import { ContactShadows, OrbitControls, useGLTF } from "@react-three/drei";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Mesh, MeshStandardMaterial, type Material, type Object3D } from "three";
 
-import type { Muscle } from "@/lib/recomp-domain";
+import type { BodyProfile, Muscle } from "@/lib/recomp-domain";
 
 type MuscleScores = Partial<Record<Muscle, number>>;
 
@@ -58,12 +58,25 @@ function paintMaterial(material: Material, color: string, active: boolean) {
   material.emissiveIntensity = active ? 0.1 : 0;
 }
 
+function profileScale(muscle: Muscle | null, profile?: BodyProfile) {
+  if (!profile || !muscle) return { x: 1, z: 1 };
+  if (muscle === "shoulders") return { x: profile.shoulderScale, z: profile.depthScale };
+  if (muscle === "chest" || muscle === "back") return { x: profile.torsoScale, z: profile.depthScale };
+  if (muscle === "core") return { x: profile.waistScale, z: profile.depthScale };
+  if (muscle === "glutes") return { x: profile.hipScale, z: profile.depthScale };
+  if (muscle === "quads" || muscle === "hamstrings") return { x: profile.thighScale, z: profile.depthScale };
+  if (muscle === "calves") return { x: 1 + (profile.thighScale - 1) * 0.45, z: profile.depthScale };
+  return { x: 1 + (profile.shoulderScale - 1) * 0.28, z: profile.depthScale };
+}
+
 function AnatomicalModel({
   periodDays,
+  profile,
   scores,
   onHover,
 }: {
   periodDays: number;
+  profile?: BodyProfile;
   scores: MuscleScores;
   onHover: (muscle: Muscle | null) => void;
 }) {
@@ -78,6 +91,8 @@ function AnatomicalModel({
         ? object.material.map((material) => material.clone())
         : object.material.clone();
       object.userData.recompMuscle = muscleForObject(object);
+      object.userData.recompBasePosition = object.position.clone();
+      object.userData.recompBaseScale = object.scale.clone();
     });
     return clone;
   }, [scene]);
@@ -90,8 +105,15 @@ function AnatomicalModel({
       const color = muscle ? muscleColor(score, periodDays) : COLORS.body;
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       materials.forEach((material) => paintMaterial(material, color, score > 0));
+      const width = profileScale(muscle, profile);
+      const basePosition = object.userData.recompBasePosition;
+      const baseScale = object.userData.recompBaseScale;
+      if (basePosition && baseScale) {
+        object.position.set(basePosition.x * width.x, basePosition.y, basePosition.z * width.z);
+        object.scale.set(baseScale.x * width.x, baseScale.y, baseScale.z * width.z);
+      }
     });
-  }, [model, periodDays, scores]);
+  }, [model, periodDays, profile, scores]);
 
   function enter(event: ThreeEvent<PointerEvent>) {
     event.stopPropagation();
@@ -139,49 +161,74 @@ export function BodyHeatmap({
   scores,
   compact = false,
   periodDays = 7,
+  profile,
 }: {
   scores: MuscleScores;
   compact?: boolean;
   periodDays?: number;
+  profile?: BodyProfile;
 }) {
   const [hoveredMuscle, setHoveredMuscle] = useState<Muscle | null>(null);
+  const [shouldRender, setShouldRender] = useState(false);
+  const heatmapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = heatmapRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      setShouldRender(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setShouldRender(true);
+      observer.disconnect();
+    }, { rootMargin: "220px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className={compact ? "heatmap heatmap-compact" : "heatmap"}>
+    <div className={compact ? "heatmap heatmap-compact" : "heatmap"} ref={heatmapRef}>
       <div className="heatmap-canvas">
-        <Canvas
-          aria-label="Interactive 3D anatomical muscle load model"
-          camera={{ fov: compact ? 30 : 29, position: [0, 0.05, compact ? 15.4 : 15] }}
-          dpr={[1, 1.75]}
-          gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-          role="img"
-          shadows
-        >
-          <ambientLight intensity={1.35} />
-          <hemisphereLight color="#fff8ed" groundColor="#26302a" intensity={1.25} />
-          <directionalLight
-            castShadow
-            intensity={2.3}
-            position={[4, 7, 6]}
-            shadow-mapSize-height={1024}
-            shadow-mapSize-width={1024}
-          />
-          <directionalLight color="#88a7ff" intensity={0.85} position={[-4, 2, -5]} />
-          <Suspense fallback={<LoadingBody />}>
-            <AnatomicalModel onHover={setHoveredMuscle} periodDays={periodDays} scores={scores} />
-          </Suspense>
-          <ContactShadows blur={2.5} far={6} opacity={0.38} position={[0, -3.22, 0]} resolution={512} scale={6} />
-          <OrbitControls
-            autoRotate={!compact}
-            autoRotateSpeed={0.45}
-            enableDamping
-            enablePan={false}
-            maxDistance={18}
-            maxPolarAngle={Math.PI / 1.7}
-            minDistance={10}
-            minPolarAngle={Math.PI / 2.4}
-          />
-        </Canvas>
+        {shouldRender ? (
+          <Canvas
+            aria-label="Interactive 3D anatomical muscle load model"
+            camera={{ fov: compact ? 30 : 29, position: [0, 0.05, compact ? 15.4 : 15] }}
+            dpr={[1, 1.75]}
+            gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+            role="img"
+            shadows
+          >
+            <ambientLight intensity={1.35} />
+            <hemisphereLight color="#fff8ed" groundColor="#26302a" intensity={1.25} />
+            <directionalLight
+              castShadow
+              intensity={2.3}
+              position={[4, 7, 6]}
+              shadow-mapSize-height={1024}
+              shadow-mapSize-width={1024}
+            />
+            <directionalLight color="#88a7ff" intensity={0.85} position={[-4, 2, -5]} />
+            <Suspense fallback={<LoadingBody />}>
+              <AnatomicalModel onHover={setHoveredMuscle} periodDays={periodDays} profile={profile} scores={scores} />
+            </Suspense>
+            <ContactShadows blur={2.5} far={6} opacity={0.38} position={[0, -3.22, 0]} resolution={512} scale={6} />
+            <OrbitControls
+              autoRotate={!compact}
+              autoRotateSpeed={0.45}
+              enableDamping
+              enablePan={false}
+              maxDistance={18}
+              maxPolarAngle={Math.PI / 1.7}
+              minDistance={10}
+              minPolarAngle={Math.PI / 2.4}
+            />
+          </Canvas>
+        ) : (
+          <div aria-label="3D anatomy will load when visible" className="heatmap-deferred">
+            <span />
+          </div>
+        )}
         <div className={`heatmap-readout ${hoveredMuscle ? "active" : ""}`}>
           <strong>{hoveredMuscle ?? "Muscle load"}</strong>
           <span>{hoveredMuscle ? `${formatScore(scores[hoveredMuscle] ?? 0)} working sets` : "Drag to inspect the anatomy"}</span>

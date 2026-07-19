@@ -13,15 +13,19 @@ import {
   Dumbbell,
   Egg,
   Footprints,
+  Gauge,
   ImagePlus,
   Info,
+  Layers3,
   Minus,
   Plus,
   Save,
+  ScanLine,
   Search,
   Sparkles,
   Target,
   Timer,
+  TrendingUp,
   Trash2,
   Trophy,
   Utensils,
@@ -32,6 +36,7 @@ import {
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { BodyHeatmap } from "@/components/BodyHeatmap";
+import { BodyTwinEditor } from "@/components/BodyTwinEditor";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { recognizeFoodPhoto, FoodRecognition } from "@/lib/browser-food-recognition";
 import {
@@ -154,6 +159,169 @@ function getMuscleScores(sessions: StrengthSession[], days = 7) {
     });
 
   return scores;
+}
+
+function completedSets(sessions: StrengthSession[]) {
+  return sessions.reduce((sessionTotal, session) =>
+    sessionTotal + session.exercises.reduce((exerciseTotal, exercise) =>
+      exerciseTotal + exercise.sets.filter((set) => set.completed).length, 0
+    ), 0
+  );
+}
+
+function strengthVolume(sessions: StrengthSession[]) {
+  return sessions.reduce((sessionTotal, session) =>
+    sessionTotal + session.exercises.reduce((exerciseTotal, exercise) =>
+      exerciseTotal + exercise.sets
+        .filter((set) => set.completed)
+        .reduce((setTotal, set) => setTotal + set.reps * set.weightKg, 0), 0
+    ), 0
+  );
+}
+
+function compactNumber(value: number) {
+  return new Intl.NumberFormat("en", {
+    maximumFractionDigits: 1,
+    notation: value >= 1_000 ? "compact" : "standard",
+  }).format(value);
+}
+
+function weightTrend(weights: RecompStore["weights"]) {
+  const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+  if (!sorted.length) return { current: null, delta: null };
+  if (sorted.length < 4) {
+    return {
+      current: sorted.at(-1)!.weightKg,
+      delta: sorted.length > 1 ? roundMacro(sorted.at(-1)!.weightKg - sorted[0].weightKg) : null,
+    };
+  }
+  const midpoint = Math.floor(sorted.length / 2);
+  const previous = sorted.slice(0, midpoint);
+  const recent = sorted.slice(midpoint);
+  const previousAverage = previous.reduce((total, entry) => total + entry.weightKg, 0) / previous.length;
+  const recentAverage = recent.reduce((total, entry) => total + entry.weightKg, 0) / recent.length;
+  return { current: roundMacro(recentAverage), delta: roundMacro(recentAverage - previousAverage) };
+}
+
+function weeklySignals(store: RecompStore) {
+  const dates = recentDates(7);
+  const meals = store.meals.filter((meal) => dates.includes(meal.date));
+  const totals = dates.map((date) =>
+    sumMacros(meals.filter((meal) => meal.date === date).map(mealMacros))
+  );
+  const logged = totals.filter((total) => total.calories > 0);
+  const proteinDays = totals.filter((total) => total.protein >= store.goals.protein * 0.85).length;
+  const targetDays = totals.filter((total) =>
+    total.calories > 0 && Math.abs(total.calories - store.goals.calories) <= store.goals.calories * 0.1
+  ).length;
+  const sessions = store.strengthSessions.filter((session) => dates.includes(session.date));
+  const activityMinutes = store.activities
+    .filter((activity) => dates.includes(activity.date))
+    .reduce((total, activity) => total + activity.durationMinutes, 0);
+  const weighIns = store.weights.filter((entry) => dates.includes(entry.date)).length;
+  const muscleScores = getMuscleScores(store.strengthSessions, 7);
+  const muscleCoverage = Object.values(muscleScores).filter((score) => (score ?? 0) > 0).length;
+  const momentum = Math.round(
+    25 * (logged.length / 7) +
+    20 * (proteinDays / 7) +
+    25 * Math.min(1, sessions.length / Math.max(1, store.goals.trainingDays)) +
+    15 * Math.min(1, (activityMinutes + sessions.length * 45) / 150) +
+    5 * Math.min(1, weighIns / 3) +
+    10 * Math.min(1, store.meals.filter((meal) => meal.date === todayIso()).length / 4),
+  );
+  return {
+    activityMinutes,
+    loggedDays: logged.length,
+    momentum: clamp(momentum, 0, 100),
+    muscleCoverage,
+    proteinDays,
+    sessions,
+    targetDays,
+  };
+}
+
+function loadRhythm(store: RecompStore) {
+  const currentDates = recentDates(7);
+  const comparisonDates = recentDates(35).slice(0, 28);
+  const current = completedSets(store.strengthSessions.filter((session) => currentDates.includes(session.date)));
+  const previousWeekly = completedSets(
+    store.strengthSessions.filter((session) => comparisonDates.includes(session.date)),
+  ) / 4;
+  if (!current && !previousWeekly) return { label: "Starting", value: 0 };
+  const ratio = previousWeekly ? current / previousWeekly : 1;
+  if (ratio > 1.35) return { label: "Surge", value: Math.min(100, Math.round(ratio * 60)) };
+  if (ratio < 0.65) return { label: "Lighter", value: Math.round(ratio * 70) };
+  return { label: "Steady", value: Math.min(100, Math.round(ratio * 70)) };
+}
+
+function MomentumDial({ value }: { value: number }) {
+  const circumference = 251.33;
+  const offset = circumference - (value / 100) * circumference;
+  return (
+    <div className="momentum-dial" aria-label={`Recomp momentum ${value} out of 100`}>
+      <svg aria-hidden="true" viewBox="0 0 96 96">
+        <circle className="momentum-track" cx="48" cy="48" fill="none" r="40" strokeWidth="7" />
+        <circle
+          className="momentum-value"
+          cx="48"
+          cy="48"
+          fill="none"
+          r="40"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          strokeWidth="7"
+        />
+      </svg>
+      <span><strong>{value}</strong><small>/ 100</small></span>
+    </div>
+  );
+}
+
+function RecompCockpit({
+  store,
+  totals,
+  onAction,
+}: {
+  store: RecompStore;
+  totals: MacroSet;
+  onAction: (view: View) => void;
+}) {
+  const signals = weeklySignals(store);
+  const trend = weightTrend(store.weights);
+  const proteinLeft = Math.max(0, store.goals.protein - totals.protein);
+  const caloriesLeft = Math.max(0, store.goals.calories - totals.calories);
+  const hasMealToday = store.meals.some((meal) => meal.date === todayIso());
+  const trainingDue = signals.sessions.length < store.goals.trainingDays;
+  const next = !hasMealToday
+    ? { title: "Log your first meal", detail: "A complete day makes every recommendation sharper.", view: "food" as View }
+    : proteinLeft > 20
+      ? { title: `Close the ${Math.round(proteinLeft)}g protein gap`, detail: `${Math.round(caloriesLeft)} kcal remain in today's budget.`, view: "food" as View }
+      : trainingDue
+        ? { title: "Progress one familiar lift", detail: `${signals.sessions.length} of ${store.goals.trainingDays} strength sessions logged this week.`, view: "training" as View }
+        : { title: "Review the trend, not one day", detail: "Your nutrition and training inputs are ready for a useful check-in.", view: "progress" as View };
+
+  return (
+    <section className="recomp-cockpit">
+      <div className="cockpit-momentum">
+        <MomentumDial value={signals.momentum} />
+        <div><span>Recomp momentum</span><small>7-day consistency signal</small></div>
+      </div>
+      <div className="cockpit-action">
+        <span><Sparkles size={14} />Next best move</span>
+        <h2>{next.title}</h2>
+        <p>{next.detail}</p>
+        <button className="text-link" onClick={() => onAction(next.view)} type="button">
+          Act on this <ChevronRight size={15} />
+        </button>
+      </div>
+      <div className="cockpit-signals">
+        <div><Target size={16} /><span><strong>{signals.targetDays}/7</strong><small>target days</small></span></div>
+        <div><Dumbbell size={16} /><span><strong>{signals.sessions.length}/{store.goals.trainingDays}</strong><small>strength</small></span></div>
+        <div><TrendingUp size={16} /><span><strong>{trend.current === null ? "—" : `${trend.current} kg`}</strong><small>trend weight</small></span></div>
+      </div>
+    </section>
+  );
 }
 
 function Card({
@@ -420,8 +588,6 @@ function TodayView({
   toggleReminders: () => void;
   deleteMeal: (id: string) => void;
 }) {
-  const proteinLeft = Math.max(0, store.goals.protein - totals.protein);
-  const caloriesLeft = Math.max(0, store.goals.calories - totals.calories);
   const latestTraining = store.strengthSessions[0];
   const todayActivities = store.activities.filter((entry) => entry.date === todayIso());
 
@@ -443,6 +609,7 @@ function TodayView({
         </div>
       </div>
 
+      <RecompCockpit onAction={setView} store={store} totals={totals} />
       <MacroStrip totals={totals} goals={store.goals} />
 
       <div className="dashboard-grid">
@@ -465,26 +632,9 @@ function TodayView({
         </div>
 
         <div className="dashboard-side">
-          <Card className="coach-card">
-            <div className="coach-icon"><Sparkles size={19} /></div>
-            <p>Next best move</p>
-            <h2>
-              {proteinLeft > 20
-                ? `Find ${Math.round(proteinLeft)}g protein inside ${Math.round(caloriesLeft)} kcal`
-                : caloriesLeft > 100
-                  ? "Protein is covered. Keep the rest flexible."
-                  : "Targets are covered for today."}
-            </h2>
-            <span>
-              {todayMeals.length < 2
-                ? "Logging the next meal early makes the evening easier to manage."
-                : "Use a familiar protein source and add carbs around training."}
-            </span>
-          </Card>
-
           <Card>
             <SectionHeading eyebrow="7-day training" title="Muscles worked" />
-            <BodyHeatmap scores={muscleScores} compact />
+            <BodyHeatmap profile={store.bodyProfile} scores={muscleScores} compact />
             <button className="text-link" onClick={() => setView("progress")} type="button">
               See training balance <ChevronRight size={15} />
             </button>
@@ -1153,10 +1303,12 @@ function ProgressView({
   store,
   saveGoals,
   addWeight,
+  onEditBody,
 }: {
   store: RecompStore;
   saveGoals: (goals: GoalSettings) => void;
   addWeight: (weight: number) => void;
+  onEditBody: () => void;
 }) {
   const [range, setRange] = useState<MetricRange>("week");
   const rangeConfig = METRIC_RANGES.find((item) => item.id === range) ?? METRIC_RANGES[1];
@@ -1180,11 +1332,8 @@ function ProgressView({
   const averageProtein = loggedDays
     ? loggedTotals.reduce((total, day) => total + day.protein, 0) / loggedDays
     : 0;
-  const workingSets = rangeSessions.reduce((sessionTotal, session) =>
-    sessionTotal + session.exercises.reduce((exerciseTotal, exercise) =>
-      exerciseTotal + exercise.sets.filter((set) => set.completed).length, 0
-    ), 0
-  );
+  const workingSets = completedSets(rangeSessions);
+  const volume = strengthVolume(rangeSessions);
   const activityMinutes = store.activities
     .filter((entry) => dates.includes(entry.date))
     .reduce((total, entry) => total + entry.durationMinutes, 0);
@@ -1194,6 +1343,18 @@ function ProgressView({
     : null;
   const expectedSessions = Math.max(1, Math.round(store.goals.trainingDays * rangeConfig.days / 7));
   const loggingCoverage = loggedDays / rangeConfig.days;
+  const proteinDays = loggedTotals.filter((total) => total.protein >= store.goals.protein * 0.85).length;
+  const targetDays = loggedTotals.filter((total) =>
+    Math.abs(total.calories - store.goals.calories) <= store.goals.calories * 0.1
+  ).length;
+  const nutritionAdherence = loggedDays ? Math.round((targetDays / loggedDays) * 100) : 0;
+  const muscleCoverage = Object.values(muscleScores).filter((score) => (score ?? 0) > 0).length;
+  const rhythm = loadRhythm(store);
+  const signalConfidence = Math.round(clamp(
+    loggingCoverage * 75 + Math.min(1, rangeWeights.length / Math.max(2, rangeConfig.days / 7)) * 25,
+    0,
+    100,
+  ));
   const chartTarget = range === "day" ? Math.round(store.goals.calories / 4) : store.goals.calories;
 
   const nutritionSuggestion = loggedDays === 0
@@ -1211,7 +1372,7 @@ function ProgressView({
       }
     : {
         title: "Progress one familiar lift.",
-        detail: "Add a rep or a small amount of weight while keeping the same clean technique.",
+        detail: `${workingSets} completed sets are logged. Add a rep or a small amount of weight with clean technique.`,
       };
 
   const trendSuggestion = sortedWeights.length < 2
@@ -1242,15 +1403,52 @@ function ProgressView({
 
       <div className="insight-stats">
         <div><span><Utensils size={17} /></span><strong>{loggedDays}/{rangeConfig.days}</strong><small>days logged</small></div>
-        <div><span><Target size={17} /></span><strong>{Math.round(averageCalories)}</strong><small>avg kcal</small></div>
-        <div><span><Dumbbell size={17} /></span><strong>{workingSets}</strong><small>working sets</small></div>
+        <div><span><Target size={17} /></span><strong>{nutritionAdherence}%</strong><small>calorie adherence</small></div>
+        <div><span><Zap size={17} /></span><strong>{proteinDays}</strong><small>protein days</small></div>
+        <div><span><Dumbbell size={17} /></span><strong>{compactNumber(volume)}</strong><small>volume kg</small></div>
+        <div><span><Layers3 size={17} /></span><strong>{muscleCoverage}/10</strong><small>muscles covered</small></div>
         <div><span><Activity size={17} /></span><strong>{activityMinutes}</strong><small>activity min</small></div>
       </div>
 
+      <section className="trajectory-rail" aria-label={`${rangeConfig.label} trajectory signals`}>
+        <div className="trajectory-intro">
+          <Gauge size={18} />
+          <span><strong>Trajectory signals</strong><small>Useful direction, grounded in what you logged</small></span>
+        </div>
+        <div className="trajectory-signal">
+          <span><small>Weight direction</small><strong>{weightChange === null ? "Needs data" : `${weightChange > 0 ? "+" : ""}${weightChange} kg`}</strong></span>
+          <i><b style={{ width: `${weightChange === null ? 6 : clamp(50 + weightChange * 18, 6, 94)}%` }} /></i>
+        </div>
+        <div className="trajectory-signal">
+          <span><small>7-day load rhythm</small><strong>{rhythm.label}</strong></span>
+          <i><b style={{ width: `${Math.max(6, rhythm.value)}%` }} /></i>
+        </div>
+        <div className="trajectory-signal">
+          <span><small>Signal confidence</small><strong>{signalConfidence}%</strong></span>
+          <i><b style={{ width: `${Math.max(6, signalConfidence)}%` }} /></i>
+        </div>
+      </section>
+
       <div className="progress-layout">
         <section className="body-analysis">
-          <SectionHeading eyebrow={`${rangeConfig.label} training balance`} title="3D muscle load" />
-          <BodyHeatmap periodDays={rangeConfig.days} scores={muscleScores} />
+          <SectionHeading
+            action={<SecondaryButton icon={ScanLine} onClick={onEditBody}>{store.bodyProfile ? "Update twin" : "Build my body"}</SecondaryButton>}
+            eyebrow={`${rangeConfig.label} training balance`}
+            title={store.bodyProfile ? "Your 3D muscle load" : "3D muscle load"}
+          />
+          {store.bodyProfile ? (
+            <div className="body-profile-note">
+              <img alt="" src={store.bodyProfile.frontPhoto} />
+              <span><strong>Personalized anatomy</strong><small>{store.bodyProfile.confidence} silhouette confidence · editable anytime</small></span>
+            </div>
+          ) : (
+            <button className="body-profile-prompt" onClick={onEditBody} type="button">
+              <ScanLine size={20} />
+              <span><strong>Make this anatomy yours</strong><small>Add a full-body photo to tune the model proportions on-device.</small></span>
+              <ChevronRight size={17} />
+            </button>
+          )}
+          <BodyHeatmap periodDays={rangeConfig.days} profile={store.bodyProfile} scores={muscleScores} />
           <p className="panel-note">Primary muscles receive a full set; secondary muscles receive half. The model reflects completed sets.</p>
         </section>
 
@@ -1261,7 +1459,10 @@ function ProgressView({
               title={range === "day" ? "Calories by meal" : "Average calories"}
             />
             <MiniBars target={chartTarget} values={calorieBuckets} />
-            <div className="target-line"><span>Daily target</span><strong>{store.goals.calories} kcal</strong></div>
+            <div className="target-line">
+              <span>{Math.round(averageCalories)} kcal average</span>
+              <strong>{store.goals.calories} kcal target</strong>
+            </div>
           </Card>
 
           <Card>
@@ -1342,6 +1543,7 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
   const [store, setStore] = useState<RecompStore>(DEFAULT_STORE);
   const [hydrated, setHydrated] = useState(false);
   const [mealSlot, setMealSlot] = useState<MealSlot>(currentMealSlot());
+  const [bodyTwinOpen, setBodyTwinOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -1367,7 +1569,11 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
+    } catch {
+      // Keep the active session usable if the browser rejects large local photo data.
+    }
   }, [hydrated, store]);
 
   useEffect(() => {
@@ -1497,6 +1703,7 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
               ...current,
               weights: [{ id: uid("weight"), date: todayIso(), weightKg }, ...current.weights.filter((entry) => entry.date !== todayIso())],
             }))}
+            onEditBody={() => setBodyTwinOpen(true)}
             saveGoals={(goals) => setStore((current) => ({ ...current, goals }))}
             store={store}
           />
@@ -1504,6 +1711,20 @@ export function RecompApp({ showSignOut: _showSignOut = true }: { showSignOut?: 
       </main>
       <MobileNav setView={navigate} view={view} />
       <footer className="re-footer">by _ae</footer>
+      {bodyTwinOpen ? (
+        <BodyTwinEditor
+          onClose={() => setBodyTwinOpen(false)}
+          onDelete={store.bodyProfile ? () => {
+            setStore((current) => ({ ...current, bodyProfile: undefined }));
+            setBodyTwinOpen(false);
+          } : undefined}
+          onSave={(bodyProfile) => {
+            setStore((current) => ({ ...current, bodyProfile }));
+            setBodyTwinOpen(false);
+          }}
+          profile={store.bodyProfile}
+        />
+      ) : null}
     </div>
   );
 }
